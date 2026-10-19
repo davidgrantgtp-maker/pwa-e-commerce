@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="description" content="Contacto y ubicación - MiApp Store" />
+  <title>Contacto · MiApp Store</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { colors: { accent: '#22d3ee' } } } };</script>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body data-page="" class="bg-gray-950 text-gray-100 min-h-screen">
+  <div class="max-w-md mx-auto min-h-screen flex flex-col relative shadow-2xl">
+    <header class="sticky top-0 z-20 bg-gray-950/90 backdrop-blur border-b border-gray-800 safe-top">
+      <div class="flex items-center gap-3 px-4 pt-3 pb-3">
+        <a href="./index.html" class="w-10 h-10 grid place-items-center rounded-xl bg-gray-900 border border-gray-800 shrink-0" aria-label="Volver">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="flex-1">
+          <p class="font-bold leading-none">Contacto</p>
+          <p class="text-xs text-gray-400 mt-0.5" data-store-name>MiApp Store</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 px-4 pb-28 pt-4 space-y-4">
+      <section class="grid grid-cols-3 gap-2">
+        <a id="wa-link" href="#" target="_blank" rel="noopener" class="card-press bg-gray-900 border border-gray-800 rounded-2xl p-3 text-center">
+          <div class="w-9 h-9 mx-auto rounded-full bg-green-400/15 text-green-300 grid place-items-center font-bold">W</div>
+          <p class="text-xs font-bold mt-2">WhatsApp</p>
+        </a>
+        <a id="tel-link" href="tel:" class="card-press bg-gray-900 border border-gray-800 rounded-2xl p-3 text-center">
+          <div class="w-9 h-9 mx-auto rounded-full bg-cyan-400/15 text-cyan-300 grid place-items-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.13.96.36 1.9.7 2.8a2 2 0 0 1-.45 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.25a2 2 0 0 1 2.1-.45c.9.34 1.84.57 2.8.7A2 2 0 0 1 22 16.9Z"/></svg>
+          </div>
+          <p class="text-xs font-bold mt-2">Llamar</p>
+        </a>
+        <a href="mailto:hola@miapp.store" class="card-press bg-gray-900 border border-gray-800 rounded-2xl p-3 text-center">
+          <div class="w-9 h-9 mx-auto rounded-full bg-cyan-400/15 text-cyan-300 grid place-items-center font-bold">@</div>
+          <p class="text-xs font-bold mt-2">Email</p>
+        </a>
+      </section>
+
+      <p id="wa-hint" class="hidden bg-amber-400/10 border border-amber-400/30 rounded-2xl p-3 text-[11px] text-amber-200">
+        Todavía no cargaste el WhatsApp del vendedor. <a href="./perfil.html" class="font-bold underline">Configuralo en Perfil</a> para recibir pedidos.
+      </p>
+
+      <section class="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+        <h2 class="font-bold">Escribinos <span class="text-xs font-normal text-gray-400">(demo)</span></h2>
+        <form id="contact-form" class="mt-3 space-y-3">
+          <input id="c-nombre" type="text" placeholder="Tu nombre" autocomplete="name"
+            class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600" />
+          <input id="c-email" type="email" placeholder="Tu email" autocomplete="email"
+            class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600" />
+          <textarea id="c-msg" rows="3" placeholder="Mensaje…" required
+            class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600 resize-none"></textarea>
+          <button type="submit" class="w-full bg-cyan-400 text-gray-950 font-bold py-3 rounded-xl active:scale-[0.98] transition">Enviar mensaje</button>
+          <p class="text-[11px] text-gray-500 text-center">No se envía a ningún servidor. Para pedidos usá el carrito.</p>
+        </form>
+      </section>
+
+      <section class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+        <div class="p-4 pb-2 flex items-center justify-between">
+          <h2 class="font-bold">Ubicación</h2>
+          <span class="text-xs text-gray-400">Obelisco, CABA</span>
+        </div>
+        <iframe title="Mapa demo" src="https://maps.google.com/maps?q=Obelisco%20Buenos%20Aires&t=&z=15&ie=UTF8&iwloc=&output=embed"
+          class="w-full h-52 grayscale invert-[0.9] contrast-[0.9]" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <div class="p-4 text-sm text-gray-400 flex justify-between">
+          <span>Lun a Vie · 9 a 18h</span>
+          <a class="text-cyan-300 font-semibold" target="_blank" rel="noopener" href="https://maps.google.com/?q=Obelisco+Buenos+Aires">Cómo llegar →</a>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabbar fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-gray-950/95 backdrop-blur border-t border-gray-800 z-20">
+      <div class="grid grid-cols-4 px-4 pt-2">
+        <a href="./index.html" data-tab="home" class="tab-link flex flex-col items-center gap-1 py-1 text-[11px] font-semibold">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21H3z"/><path d="M9 21v-6h6v6"/></svg>
+          Inicio<span class="tab-dot w-1 h-1 rounded-full bg-cyan-400"></span>
+        </a>
+        <a href="./carrito.html" data-tab="carrito" class="tab-link relative flex flex-col items-center gap-1 py-1 text-[11px] font-semibold">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+          Carrito<span data-cart-count class="hidden absolute top-0 right-1/2 translate-x-5 min-w-[16px] h-4 px-1 rounded-full bg-cyan-400 text-gray-950 text-[9px] font-bold grid place-items-center">0</span><span class="tab-dot w-1 h-1 rounded-full bg-cyan-400"></span>
+        </a>
+        <a href="./pedidos.html" data-tab="pedidos" class="tab-link relative flex flex-col items-center gap-1 py-1 text-[11px] font-semibold">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
+          Pedidos<span data-orders-count class="hidden absolute top-0 right-1/2 translate-x-5 min-w-[16px] h-4 px-1 rounded-full bg-amber-400 text-gray-950 text-[9px] font-bold grid place-items-center">0</span><span class="tab-dot w-1 h-1 rounded-full bg-cyan-400"></span>
+        </a>
+        <a href="./perfil.html" data-tab="perfil" class="tab-link flex flex-col items-center gap-1 py-1 text-[11px] font-semibold">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-5.5 8-5.5s6.5 1.5 8 5.5"/></svg>
+          Perfil<span class="tab-dot w-1 h-1 rounded-full bg-cyan-400"></span>
+        </a>
+      </div>
+    </nav>
+
+    <div id="toast" class="fixed bottom-24 left-1/2 z-30 bg-cyan-400 text-gray-950 text-sm font-semibold px-4 py-2.5 rounded-full shadow-xl max-w-[90%] text-center"></div>
+  </div>
+
+  <script src="./js/products.js"></script>
+  <script src="./js/shop.js"></script>
+  <script src="./js/app.js"></script>
+  <script>
+    (function () {
+      const settings = Shop.getSettings();
+      const phone = Shop.normalizePhone(settings.sellerPhone);
+      const wa = document.getElementById('wa-link');
+      const tel = document.getElementById('tel-link');
+      if (phone) {
+        wa.href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('Hola ' + settings.storeName + ', quería hacer una consulta.');
+        tel.href = 'tel:+' + phone;
+      } else {
+        wa.href = './perfil.html';
+        document.getElementById('wa-hint').classList.remove('hidden');
+      }
+      document.querySelectorAll('[data-store-name]').forEach(function (el) {
+        el.textContent = settings.storeName;
+      });
+    })();
+  </script>
+</body>
+</html>

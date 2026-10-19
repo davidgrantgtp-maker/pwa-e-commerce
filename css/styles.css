@@ -1,0 +1,100 @@
+/* MiApp Store - estilos extra (Tailwind va por CDN) */
+:root {
+  --accent: #22d3ee;
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html, body {
+  background: #030712;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+::selection { background: #22d3ee; color: #030712; }
+
+/* Scrollbar oscura */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #030712; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 999px; }
+
+/* Aviso del mensaje de WhatsApp */
+details summary { list-style: none; }
+details summary::-webkit-details-marker { display: none; }
+details summary::after { content: "＋"; float: right; color: #6b7280; }
+details[open] summary::after { content: "－"; }
+
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Safe areas iOS */
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.tabbar {
+  padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+}
+
+/* Tab activa */
+.tab-link { color: #6b7280; transition: color .15s ease; }
+.tab-link.active { color: var(--accent); }
+.tab-link.active .tab-dot { opacity: 1; transform: scale(1); }
+.tab-dot {
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all .18s ease;
+}
+
+/* Ocultar scrollbar en carruseles */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Toggle nativo */
+.toggle {
+  appearance: none;
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  background: #374151;
+  position: relative;
+  outline: none;
+  cursor: pointer;
+  transition: background .2s ease;
+  flex-shrink: 0;
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  transition: transform .2s ease;
+}
+.toggle:checked { background: var(--accent); }
+.toggle:checked::after { transform: translateX(20px); }
+
+/* Toast */
+#toast {
+  transition: transform .25s ease, opacity .25s ease;
+  transform: translate(-50%, 16px);
+  opacity: 0;
+  pointer-events: none;
+}
+#toast.show {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
+/* Cards demo */
+.card-press:active { transform: scale(0.98); }
+.card-press { transition: transform .12s ease; }
+
+/* Botón instalar oculto por defecto */
+#btn-install { display: none; }
+#btn-install.visible { display: inline-flex; }
