@@ -1,3 +1,4 @@
+
 -- =====================================================================
 --  MiApp Store · Configuración de tienda + banners
 --  Migración idempotente para un proyecto Supabase ya instalado.
