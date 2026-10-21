@@ -10,10 +10,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $email = isset($_POST['email']) ? $_POST['email'] : '';
     $pass = isset($_POST['password']) ? $_POST['password'] : '';
-    if (attempt_login($email, $pass)) {
-        redirect('index.php');
+    try {
+        if (attempt_login($email, $pass)) {
+            redirect('index.php');
+        }
+        $error = 'Email o contraseña incorrectos.';
+    } catch (Exception $e) {
+        $error = 'No se pudo conectar con Supabase: ' . $e->getMessage();
     }
-    $error = 'Email o contraseña incorrectos.';
 }
 ?>
 <!DOCTYPE html>

@@ -10,13 +10,17 @@ function current_user()
     }
     static $user = null;
     if ($user === null) {
-        $rows = sb()->get('usuarios', array(
-            'select' => 'id,nombre,email,rol',
-            'id' => 'eq.' . (int) $_SESSION['user_id'],
-            'activo' => 'is.true',
-            'limit' => 1
-        ));
-        $user = $rows ? $rows[0] : false;
+        try {
+            $rows = sb()->get('usuarios', array(
+                'select' => 'id,nombre,email,rol',
+                'id' => 'eq.' . (int) $_SESSION['user_id'],
+                'activo' => 'is.true',
+                'limit' => 1
+            ));
+            $user = $rows ? $rows[0] : false;
+        } catch (Exception $e) {
+            return null;
+        }
     }
     return $user ? $user : null;
 }

@@ -21,6 +21,35 @@ class SupabaseRest
         $this->timeout = (int) $timeout;
     }
 
+    /**
+     * Busca un bundle de CAs válido. Permite arrancar aunque php.ini apunte
+     * a un archivo inexistente (caso típico de XAMPP en Windows).
+     */
+    private static function caBundle()
+    {
+        static $path = null;
+        static $checked = false;
+        if ($checked) {
+            return $path;
+        }
+        $checked = true;
+        $candidatos = array();
+        if (defined('SUPABASE_CA_BUNDLE') && SUPABASE_CA_BUNDLE !== '') {
+            $candidatos[] = SUPABASE_CA_BUNDLE;
+        }
+        $candidatos[] = dirname(dirname(__FILE__)) . '/config/cacert.pem';
+        $candidatos[] = 'C:/xampp/php/cacert.pem';
+        $candidatos[] = 'C:/xampp/apache/bin/curl-ca-bundle.crt';
+        $candidatos[] = 'C:/xampp/perl/vendor/lib/Mozilla/CA/cacert.pem';
+        foreach ($candidatos as $c) {
+            if ($c && @is_file($c)) {
+                $path = $c;
+                break;
+            }
+        }
+        return $path;
+    }
+
     private function baseHeaders()
     {
         return array(
@@ -74,6 +103,10 @@ class SupabaseRest
             }
             return strlen($line);
         });
+        $ca = self::caBundle();
+        if ($ca !== null) {
+            curl_setopt($ch, CURLOPT_CAINFO, $ca);
+        }
         if ($body !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
