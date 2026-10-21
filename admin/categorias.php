@@ -2,7 +2,6 @@
 require_once dirname(__DIR__) . '/includes/layout.php';
 require_login();
 
-$pdo = db();
 $editId = isset($_GET['edit']) ? (int) $_GET['edit'] : 0;
 $edit = null;
 
@@ -17,43 +16,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $orden = (int) (isset($_POST['orden']) ? $_POST['orden'] : 0);
         if ($nombre === '') {
             flash_set('danger', 'El nombre es obligatorio.');
+        } elseif (categoria_nombre_existe($nombre, $accion === 'actualizar' ? $id : 0)) {
+            flash_set('danger', 'Ya existe una categoría con ese nombre.');
         } else {
-            $dup = $pdo->prepare('SELECT COUNT(*) FROM categorias WHERE nombre = ? AND id <> ?');
-            $dup->execute(array($nombre, $id));
-            if ((int) $dup->fetchColumn() > 0) {
-                flash_set('danger', 'Ya existe una categoría con ese nombre.');
-            } elseif ($accion === 'crear') {
-                $st = $pdo->prepare('INSERT INTO categorias (nombre, slug, activo, orden, creado_en) VALUES (?,?,?,?,NOW())');
-                $st->execute(array($nombre, unique_slug('categorias', slugify($nombre)), $activo, $orden));
-                flash_set('success', 'Categoría creada.');
-            } else {
-                $st = $pdo->prepare('UPDATE categorias SET nombre = ?, activo = ?, orden = ? WHERE id = ?');
-                $st->execute(array($nombre, $activo, $orden, $id));
-                flash_set('success', 'Categoría actualizada.');
+            try {
+                if ($accion === 'crear') {
+                    categoria_crear($nombre, $activo, $orden);
+                    flash_set('success', 'Categoría creada.');
+                } else {
+                    categoria_actualizar($id, $nombre, $activo, $orden);
+                    flash_set('success', 'Categoría actualizada.');
+                }
+            } catch (Exception $e) {
+                flash_set('danger', 'No se pudo guardar: ' . $e->getMessage());
             }
         }
     } elseif ($accion === 'eliminar' && $id) {
-        $st = $pdo->prepare('DELETE FROM categorias WHERE id = ?');
-        $st->execute(array($id));
+        categoria_eliminar($id);
         flash_set('warning', 'Categoría eliminada. Sus productos quedaron sin categoría.');
     } elseif ($accion === 'toggle' && $id) {
-        $st = $pdo->prepare('UPDATE categorias SET activo = 1 - activo WHERE id = ?');
-        $st->execute(array($id));
+        $cat = categoria_obtener($id);
+        if ($cat) {
+            sb()->update('categorias', array('id' => 'eq.' . $id), array('activo' => !(bool) $cat['activo']));
+        }
         flash_set('success', 'Estado de la categoría actualizado.');
     }
     redirect('categorias.php');
 }
 
 if ($editId) {
-    $st = $pdo->prepare('SELECT * FROM categorias WHERE id = ?');
-    $st->execute(array($editId));
-    $edit = $st->fetch();
+    $edit = categoria_obtener($editId);
 }
 
-$cats = $pdo->query('SELECT c.*, 
-        (SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id) AS productos,
-        (SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id AND p.activo = 1) AS activos
-    FROM categorias c ORDER BY c.orden ASC, c.nombre ASC')->fetchAll();
+$cats = categorias_con_conteo();
 
 admin_header('Categorías', 'categorias.php');
 ?>

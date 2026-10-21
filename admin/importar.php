@@ -72,7 +72,8 @@ if ($paso === 'result') {
 }
 if ($paso === 'preview' && !$data) { $paso = 'upload'; }
 
-$historial = db()->query('SELECT i.*, u.email FROM importaciones i LEFT JOIN usuarios u ON u.id = i.usuario_id ORDER BY i.id DESC LIMIT 12')->fetchAll();
+$historial = sb()->rpc('ultimas_importaciones', array('p_limit' => 12));
+$historial = is_array($historial) ? $historial : array();
 
 $etiquetas = array(
     'sku' => 'SKU', 'nombre' => 'Nombre', 'categoria' => 'Categoría', 'precio' => 'Precio',
@@ -233,7 +234,7 @@ admin_header('Importar Excel/CSV', 'importar.php');
             <td class="text-info"><?php echo (int) $h['actualizadas']; ?></td>
             <td class="<?php echo (int) $h['errores'] ? 'text-danger' : 'text-secondary'; ?>"><?php echo (int) $h['errores']; ?></td>
             <td class="small text-secondary"><?php echo h($h['email']); ?></td>
-            <td class="small text-secondary"><?php echo h($h['creado_en']); ?></td>
+            <td class="small text-secondary"><?php echo h(fecha_legible($h['creado_en'])); ?></td>
           </tr>
         <?php endforeach; ?>
         </tbody>

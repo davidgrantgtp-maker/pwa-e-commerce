@@ -1,0 +1,9 @@
+# Credenciales locales (nunca versionar)
+config/supabase.php
+
+# Subidas del panel
+uploads/*
+
+# Sistema
+Thumbs.db
+.DS_Store

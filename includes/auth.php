@@ -10,9 +10,13 @@ function current_user()
     }
     static $user = null;
     if ($user === null) {
-        $st = db()->prepare('SELECT id, nombre, email, rol FROM usuarios WHERE id = ? AND activo = 1 LIMIT 1');
-        $st->execute(array((int) $_SESSION['user_id']));
-        $user = $st->fetch();
+        $rows = sb()->get('usuarios', array(
+            'select' => 'id,nombre,email,rol',
+            'id' => 'eq.' . (int) $_SESSION['user_id'],
+            'activo' => 'is.true',
+            'limit' => 1
+        ));
+        $user = $rows ? $rows[0] : false;
     }
     return $user ? $user : null;
 }
@@ -28,9 +32,13 @@ function require_login()
 /** Intentar login */
 function attempt_login($email, $password)
 {
-    $st = db()->prepare('SELECT * FROM usuarios WHERE email = ? AND activo = 1 LIMIT 1');
-    $st->execute(array(trim($email)));
-    $user = $st->fetch();
+    $rows = sb()->get('usuarios', array(
+        'select' => '*',
+        'email' => 'eq.' . trim($email),
+        'activo' => 'is.true',
+        'limit' => 1
+    ));
+    $user = $rows ? $rows[0] : null;
     if ($user && password_verify($password, $user['password_hash'])) {
         session_regenerate_id(true);
         $_SESSION['user_id'] = (int) $user['id'];

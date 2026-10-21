@@ -2,22 +2,20 @@
 require_once dirname(__DIR__) . '/includes/layout.php';
 require_login();
 
-$pdo = db();
+$stats = sb()->rpc('dashboard_stats');
+$stats = is_array($stats) ? $stats : array();
 
-$totalProductos = (int) $pdo->query('SELECT COUNT(*) FROM productos')->fetchColumn();
-$activos        = (int) $pdo->query('SELECT COUNT(*) FROM productos WHERE activo = 1')->fetchColumn();
-$agotados       = (int) $pdo->query('SELECT COUNT(*) FROM productos WHERE stock <= 0')->fetchColumn();
-$bajoStock      = (int) $pdo->query('SELECT COUNT(*) FROM productos WHERE stock > 0 AND stock <= 5')->fetchColumn();
-$totalCategorias = (int) $pdo->query('SELECT COUNT(*) FROM categorias')->fetchColumn();
-$valorInventario = (float) $pdo->query('SELECT COALESCE(SUM(precio * stock), 0) FROM productos')->fetchColumn();
+$totalProductos  = (int) (isset($stats['total_productos']) ? $stats['total_productos'] : 0);
+$activos         = (int) (isset($stats['activos']) ? $stats['activos'] : 0);
+$agotados        = (int) (isset($stats['agotados']) ? $stats['agotados'] : 0);
+$bajoStock       = (int) (isset($stats['bajo_stock']) ? $stats['bajo_stock'] : 0);
+$totalCategorias = (int) (isset($stats['total_categorias']) ? $stats['total_categorias'] : 0);
+$valorInventario = (float) (isset($stats['valor_inventario']) ? $stats['valor_inventario'] : 0);
 
-$porCategoria = $pdo->query('SELECT c.nombre, COUNT(p.id) AS total
-    FROM categorias c LEFT JOIN productos p ON p.categoria_id = c.id
-    GROUP BY c.id ORDER BY c.orden ASC, c.nombre ASC')->fetchAll();
-
-$stockCritico = $pdo->query('SELECT id, nombre, stock, sku FROM productos WHERE stock <= 5 ORDER BY stock ASC, nombre ASC LIMIT 8')->fetchAll();
-$importaciones = $pdo->query('SELECT * FROM importaciones ORDER BY id DESC LIMIT 5')->fetchAll();
-$movimientos = $pdo->query('SELECT m.*, p.nombre AS producto FROM movimientos m LEFT JOIN productos p ON p.id = m.producto_id ORDER BY m.id DESC LIMIT 6')->fetchAll();
+$porCategoria  = sb()->rpc('por_categoria');
+$stockCritico  = sb()->rpc('stock_critico', array('p_limit' => 8));
+$importaciones = sb()->rpc('ultimas_importaciones', array('p_limit' => 5));
+$movimientos   = sb()->rpc('ultimos_movimientos', array('p_limit' => 6));
 
 admin_header('Dashboard', 'index.php');
 ?>
@@ -137,7 +135,7 @@ admin_header('Dashboard', 'index.php');
             <i class="bi bi-arrow-left-right text-info"></i>
             <div>
               <div><?php echo h($m['producto'] ? $m['producto'] : 'Producto #' . $m['producto_id']); ?></div>
-              <div class="text-secondary"><?php echo h($m['campo']); ?> · <?php echo h($m['tipo']); ?> <?php echo h($m['valor']); ?> · <?php echo h($m['creado_en']); ?></div>
+              <div class="text-secondary"><?php echo h($m['campo']); ?> · <?php echo h($m['tipo']); ?> <?php echo h($m['valor']); ?> · <?php echo h(fecha_legible($m['creado_en'])); ?></div>
             </div>
           </div>
         <?php endforeach; ?>
@@ -165,7 +163,7 @@ admin_header('Dashboard', 'index.php');
           <td class="text-success"><?php echo (int) $imp['creadas']; ?></td>
           <td class="text-info"><?php echo (int) $imp['actualizadas']; ?></td>
           <td class="<?php echo (int) $imp['errores'] ? 'text-danger' : 'text-secondary'; ?>"><?php echo (int) $imp['errores']; ?></td>
-          <td class="text-secondary small"><?php echo h($imp['creado_en']); ?></td>
+          <td class="text-secondary small"><?php echo h(fecha_legible($imp['creado_en'])); ?></td>
         </tr>
       <?php endforeach; ?>
       </tbody>

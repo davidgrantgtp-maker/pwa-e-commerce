@@ -6,8 +6,11 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, max-age=0');
 
 try {
-    $pdo = db();
-    $rows = $pdo->query('SELECT id, nombre, slug FROM categorias WHERE activo = 1 ORDER BY orden ASC, nombre ASC')->fetchAll();
+    $rows = sb_public()->get('categorias', array(
+        'select' => 'id,nombre,slug',
+        'activo' => 'is.true',
+        'order'  => 'orden.asc,nombre.asc'
+    ));
     $out = array(array('name' => 'Todos', 'slug' => 'todos'));
     foreach ($rows as $c) {
         $out[] = array('name' => $c['nombre'], 'slug' => $c['slug']);

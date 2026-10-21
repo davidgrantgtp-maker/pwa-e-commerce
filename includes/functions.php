@@ -64,33 +64,25 @@ function slugify($text)
     $text = strtolower(trim($text));
     $text = preg_replace('/[^a-z0-9]+/', '-', $text);
     $text = trim($text, '-');
-    $text = substr($text, 0, 170);
+    $text = substr($text, 0, 120);
     $text = trim($text, '-');
     return $text !== '' ? $text : 'item';
-}
-
-/** Slug único en una tabla */
-function unique_slug($table, $base, $excludeId = 0)
-{
-    $pdo = db();
-    $slug = $base;
-    $i = 2;
-    while (true) {
-        $sql = 'SELECT COUNT(*) FROM ' . $table . ' WHERE slug = ? AND id <> ?';
-        $st = $pdo->prepare($sql);
-        $st->execute(array($slug, (int) $excludeId));
-        if ((int) $st->fetchColumn() === 0) {
-            return $slug;
-        }
-        $slug = $base . '-' . $i;
-        $i++;
-    }
 }
 
 /** Formato de moneda AR */
 function money($value)
 {
     return '$' . number_format((float) $value, 2, ',', '.');
+}
+
+/** Fecha ISO de Postgres -> formato local legible */
+function fecha_legible($iso)
+{
+    if (!$iso) {
+        return '';
+    }
+    $t = strtotime($iso);
+    return $t ? date('d/m/Y H:i', $t) : (string) $iso;
 }
 
 /** Parsear números en varios formatos (1.234,56 / 1234.56 / $1.234) */
@@ -137,37 +129,6 @@ function parse_bool($value, $default = 0)
     return $default;
 }
 
-/** Obtener categorías activas para selects */
-function categorias_select($soloActivas = false)
-{
-    $sql = 'SELECT id, nombre FROM categorias';
-    if ($soloActivas) {
-        $sql .= ' WHERE activo = 1';
-    }
-    $sql .= ' ORDER BY orden ASC, nombre ASC';
-    return db()->query($sql)->fetchAll();
-}
-
-/** Buscar o crear categoría por nombre, devuelve ID */
-function categoria_por_nombre($nombre)
-{
-    $nombre = trim((string) $nombre);
-    if ($nombre === '') {
-        return null;
-    }
-    $pdo = db();
-    $st = $pdo->prepare('SELECT id FROM categorias WHERE nombre = ? LIMIT 1');
-    $st->execute(array($nombre));
-    $id = $st->fetchColumn();
-    if ($id) {
-        return (int) $id;
-    }
-    $slug = unique_slug('categorias', slugify($nombre));
-    $st = $pdo->prepare('INSERT INTO categorias (nombre, slug, activo, creado_en) VALUES (?, ?, 1, NOW())');
-    $st->execute(array($nombre, $slug));
-    return (int) $pdo->lastInsertId();
-}
-
 /** Normaliza texto para comparar encabezados */
 function normaliza_header($text)
 {
@@ -191,4 +152,211 @@ function imagen_src($valor, $prefijo = '')
         return $valor;
     }
     return $prefijo . ltrim($valor, '/');
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helpers de datos (Supabase REST)                                   */
+/* ------------------------------------------------------------------ */
+
+/** Slug único en una tabla */
+function unique_slug($table, $base, $excludeId = 0)
+{
+    $slug = $base;
+    $i = 2;
+    while (true) {
+        $query = array('select' => 'id', 'slug' => 'eq.' . $slug, 'limit' => 1);
+        if ($excludeId) {
+            $query['id'] = 'neq.' . (int) $excludeId;
+        }
+        $rows = sb()->get($table, $query);
+        if (!$rows) {
+            return $slug;
+        }
+        $slug = $base . '-' . $i;
+        $i++;
+    }
+}
+
+/** Categorías para selects */
+function categorias_select($soloActivas = false)
+{
+    $query = array('select' => 'id,nombre', 'order' => 'orden.asc,nombre.asc');
+    if ($soloActivas) {
+        $query['activo'] = 'is.true';
+    }
+    return sb()->get('categorias', $query);
+}
+
+/** Buscar o crear categoría por nombre, devuelve ID */
+function categoria_por_nombre($nombre)
+{
+    $nombre = trim((string) $nombre);
+    if ($nombre === '') {
+        return null;
+    }
+    $rows = sb()->get('categorias', array('select' => 'id', 'nombre' => 'eq.' . $nombre, 'limit' => 1));
+    if ($rows) {
+        return (int) $rows[0]['id'];
+    }
+    $slug = unique_slug('categorias', slugify($nombre));
+    $res = sb()->insert('categorias', array(
+        'nombre' => $nombre, 'slug' => $slug, 'activo' => true, 'orden' => 0
+    ), array('return' => true));
+    return (is_array($res) && isset($res[0]['id'])) ? (int) $res[0]['id'] : null;
+}
+
+/**
+ * Lista de productos con filtros, orden y paginación.
+ * $opts: q, cat, estado, dest, orden, page, per_page
+ */
+function productos_buscar($opts = array())
+{
+    $q        = isset($opts['q']) ? trim($opts['q']) : '';
+    $cat      = isset($opts['cat']) ? (int) $opts['cat'] : 0;
+    $estado   = isset($opts['estado']) ? $opts['estado'] : '';
+    $dest     = !empty($opts['dest']);
+    $orden    = isset($opts['orden']) ? $opts['orden'] : 'recientes';
+    $page     = isset($opts['page']) ? max(1, (int) $opts['page']) : 1;
+    $perPage  = isset($opts['per_page']) ? (int) $opts['per_page'] : ITEMS_PER_PAGE;
+
+    $query = array('select' => '*,categorias(nombre)');
+
+    if ($q !== '') {
+        $limpio = str_replace(array(',', '(', ')', '*'), ' ', $q);
+        $limpio = trim(preg_replace('/\s+/', ' ', $limpio));
+        $pat = '*' . $limpio . '*';
+        $query['or'] = '(nombre.ilike.' . $pat . ',sku.ilike.' . $pat . ',descripcion.ilike.' . $pat . ')';
+    }
+    if ($cat) {
+        $query['categoria_id'] = 'eq.' . $cat;
+    }
+    if ($estado === 'activos') {
+        $query['activo'] = 'is.true';
+    } elseif ($estado === 'inactivos') {
+        $query['activo'] = 'is.false';
+    } elseif ($estado === 'agotados') {
+        $query['stock'] = 'lte.0';
+    } elseif ($estado === 'bajo') {
+        $query['and'] = '(stock.gt.0,stock.lte.5)';
+    }
+    if ($dest) {
+        $query['destacado'] = 'is.true';
+    }
+
+    switch ($orden) {
+        case 'nombre': $query['order'] = 'nombre.asc'; break;
+        case 'precio_asc': $query['order'] = 'precio.asc'; break;
+        case 'precio_desc': $query['order'] = 'precio.desc'; break;
+        case 'stock_asc': $query['order'] = 'stock.asc'; break;
+        default: $query['order'] = 'id.desc';
+    }
+
+    if ($perPage > 0) {
+        $query['limit'] = $perPage;
+        $query['offset'] = ($page - 1) * $perPage;
+    }
+
+    try {
+        $res = sb()->getWithCount('productos', $query);
+    } catch (Exception $e) {
+        // Offset fuera de rango (HTTP 416): reintentar desde el inicio.
+        if (strpos($e->getMessage(), '416') === false) {
+            throw $e;
+        }
+        unset($query['offset']);
+        $res = sb()->getWithCount('productos', $query);
+    }
+
+    $rows = $res['data'];
+    foreach ($rows as $i => $r) {
+        $rows[$i]['categoria'] = isset($r['categorias']['nombre']) ? $r['categorias']['nombre'] : null;
+    }
+
+    $total = $res['count'] !== null ? $res['count'] : count($rows);
+    $paginas = $perPage > 0 ? max(1, (int) ceil($total / $perPage)) : 1;
+
+    return array('rows' => $rows, 'total' => $total, 'page' => $page, 'paginas' => $paginas);
+}
+
+/** Un producto por id */
+function producto_obtener($id)
+{
+    $rows = sb()->get('productos', array('select' => '*', 'id' => 'eq.' . (int) $id, 'limit' => 1));
+    return $rows ? $rows[0] : null;
+}
+
+/** Crear producto, devuelve el id */
+function producto_crear($data)
+{
+    $res = sb()->insert('productos', $data, array('return' => true));
+    return (is_array($res) && isset($res[0]['id'])) ? (int) $res[0]['id'] : null;
+}
+
+/** Actualizar producto por id */
+function producto_actualizar($id, $data)
+{
+    sb()->update('productos', array('id' => 'eq.' . (int) $id), $data);
+}
+
+/** Eliminar producto por id */
+function producto_eliminar($id)
+{
+    sb()->delete('productos', array('id' => 'eq.' . (int) $id));
+}
+
+/** Productos por lista de ids */
+function productos_por_ids($ids)
+{
+    if (!$ids) {
+        return array();
+    }
+    return sb()->get('productos', array('select' => '*', 'id' => sb_in($ids)));
+}
+
+/* ---- Categorías ---- */
+
+function categorias_con_conteo()
+{
+    return sb()->rpc('categorias_con_conteo');
+}
+
+function categoria_obtener($id)
+{
+    $rows = sb()->get('categorias', array('select' => '*', 'id' => 'eq.' . (int) $id, 'limit' => 1));
+    return $rows ? $rows[0] : null;
+}
+
+function categoria_nombre_existe($nombre, $excludeId = 0)
+{
+    $query = array('select' => 'id', 'nombre' => 'eq.' . trim($nombre), 'limit' => 1);
+    if ($excludeId) {
+        $query['id'] = 'neq.' . (int) $excludeId;
+    }
+    return (bool) sb()->get('categorias', $query);
+}
+
+/** Crear categoría, devuelve el id */
+function categoria_crear($nombre, $activo = true, $orden = 0)
+{
+    $res = sb()->insert('categorias', array(
+        'nombre' => $nombre,
+        'slug' => unique_slug('categorias', slugify($nombre)),
+        'activo' => (bool) $activo,
+        'orden' => (int) $orden
+    ), array('return' => true));
+    return (is_array($res) && isset($res[0]['id'])) ? (int) $res[0]['id'] : null;
+}
+
+function categoria_actualizar($id, $nombre, $activo, $orden)
+{
+    sb()->update('categorias', array('id' => 'eq.' . (int) $id), array(
+        'nombre' => $nombre,
+        'activo' => (bool) $activo,
+        'orden' => (int) $orden
+    ));
+}
+
+function categoria_eliminar($id)
+{
+    sb()->delete('categorias', array('id' => 'eq.' . (int) $id));
 }

@@ -249,19 +249,15 @@ function import_preparar($filas)
 }
 
 /**
- * Importa (upsert por SKU o nombre). Devuelve estadísticas.
+ * Importa (upsert por SKU o nombre) usando la API REST de Supabase.
+ * Devuelve estadísticas.
  */
 function import_procesar($rows, $archivo, $usuarioId = 0)
 {
-    $pdo = db();
     $creadas = 0;
     $actualizadas = 0;
     $errores = 0;
     $detalles = array();
-    $columnas = array();
-    if ($rows) {
-        $columnas = array_keys($rows[0]);
-    }
 
     foreach ($rows as $n => $r) {
         $filaN = $n + 2; // +2 = fila real en la planilla (1 es encabezado)
@@ -285,52 +281,50 @@ function import_procesar($rows, $archivo, $usuarioId = 0)
                 $tieneCategoria = true;
             }
 
-            // Buscar existente
+            // Buscar existente por SKU y, si no hay, por nombre.
             $existente = null;
             if ($sku !== null) {
-                $st = $pdo->prepare('SELECT * FROM productos WHERE sku = ? LIMIT 1');
-                $st->execute(array($sku));
-                $existente = $st->fetch();
+                $find = sb()->get('productos', array('select' => '*', 'sku' => 'eq.' . $sku, 'limit' => 1));
+                $existente = $find ? $find[0] : null;
             }
             if (!$existente) {
-                $st = $pdo->prepare('SELECT * FROM productos WHERE nombre = ? LIMIT 1');
-                $st->execute(array($nombre));
-                $existente = $st->fetch();
+                $find = sb()->get('productos', array('select' => '*', 'nombre' => 'eq.' . $nombre, 'limit' => 1));
+                $existente = $find ? $find[0] : null;
             }
 
             if ($existente) {
-                $sets = array();
-                $vals = array();
-                $sets[] = 'nombre = ?'; $vals[] = $nombre;
-                $sets[] = 'sku = ?'; $vals[] = $sku;
-                if ($precio !== null) { $sets[] = 'precio = ?'; $vals[] = $precio; }
-                if (isset($r['precio_anterior'])) { $sets[] = 'precio_anterior = ?'; $vals[] = $precioAnterior; }
-                if (isset($r['costo'])) { $sets[] = 'costo = ?'; $vals[] = $costo; }
-                if ($stock !== null) { $sets[] = 'stock = ?'; $vals[] = (int) $stock; }
-                if (isset($r['descripcion']) && $r['descripcion'] !== '') { $sets[] = 'descripcion = ?'; $vals[] = $r['descripcion']; }
-                if (isset($r['imagen']) && $r['imagen'] !== '') { $sets[] = 'imagen = ?'; $vals[] = $r['imagen']; }
-                if (isset($r['etiqueta'])) { $sets[] = 'etiqueta = ?'; $vals[] = $r['etiqueta']; }
-                if ($tieneCategoria) { $sets[] = 'categoria_id = ?'; $vals[] = $catId; }
-                if (isset($r['destacado']) && $r['destacado'] !== '') { $sets[] = 'destacado = ?'; $vals[] = parse_bool($r['destacado'], 0); }
-                if (isset($r['activo']) && $r['activo'] !== '') { $sets[] = 'activo = ?'; $vals[] = parse_bool($r['activo'], 1); }
-                $sets[] = 'actualizado_en = NOW()';
-                $vals[] = (int) $existente['id'];
-                $st = $pdo->prepare('UPDATE productos SET ' . implode(', ', $sets) . ' WHERE id = ?');
-                $st->execute($vals);
+                $data = array('nombre' => $nombre, 'sku' => $sku);
+                if ($precio !== null) { $data['precio'] = $precio; }
+                if (isset($r['precio_anterior'])) { $data['precio_anterior'] = $precioAnterior; }
+                if (isset($r['costo'])) { $data['costo'] = $costo; }
+                if ($stock !== null) { $data['stock'] = (int) $stock; }
+                if (isset($r['descripcion']) && $r['descripcion'] !== '') { $data['descripcion'] = $r['descripcion']; }
+                if (isset($r['imagen']) && $r['imagen'] !== '') { $data['imagen'] = $r['imagen']; }
+                if (isset($r['etiqueta'])) { $data['etiqueta'] = $r['etiqueta']; }
+                if ($tieneCategoria) { $data['categoria_id'] = $catId; }
+                if (isset($r['destacado']) && $r['destacado'] !== '') { $data['destacado'] = (bool) parse_bool($r['destacado'], 0); }
+                if (isset($r['activo']) && $r['activo'] !== '') { $data['activo'] = (bool) parse_bool($r['activo'], 1); }
+                producto_actualizar($existente['id'], $data);
                 $actualizadas++;
             } else {
                 if ($precio === null) { $precio = 0; }
                 if ($stock === null) { $stock = 0; }
-                $slug = unique_slug('productos', slugify($nombre));
-                $st = $pdo->prepare('INSERT INTO productos (sku, nombre, slug, categoria_id, precio, precio_anterior, costo, stock, descripcion, imagen, etiqueta, destacado, activo, creado_en) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
-                $st->execute(array(
-                    $sku, $nombre, $slug, $catId, $precio, $precioAnterior, $costo, (int) $stock,
-                    isset($r['descripcion']) ? $r['descripcion'] : '',
-                    isset($r['imagen']) ? $r['imagen'] : '',
-                    isset($r['etiqueta']) ? $r['etiqueta'] : '',
-                    isset($r['destacado']) ? parse_bool($r['destacado'], 0) : 0,
-                    isset($r['activo']) ? parse_bool($r['activo'], 1) : 1
-                ));
+                $data = array(
+                    'sku' => $sku,
+                    'nombre' => $nombre,
+                    'slug' => unique_slug('productos', slugify($nombre)),
+                    'categoria_id' => $catId,
+                    'precio' => $precio,
+                    'precio_anterior' => $precioAnterior,
+                    'costo' => $costo,
+                    'stock' => (int) $stock,
+                    'descripcion' => isset($r['descripcion']) ? $r['descripcion'] : '',
+                    'imagen' => isset($r['imagen']) ? $r['imagen'] : '',
+                    'etiqueta' => isset($r['etiqueta']) ? $r['etiqueta'] : '',
+                    'destacado' => (bool) (isset($r['destacado']) ? parse_bool($r['destacado'], 0) : 0),
+                    'activo' => (bool) (isset($r['activo']) ? parse_bool($r['activo'], 1) : 1)
+                );
+                producto_crear($data);
                 $creadas++;
             }
         } catch (Exception $e) {
@@ -340,8 +334,14 @@ function import_procesar($rows, $archivo, $usuarioId = 0)
     }
 
     $total = count($rows);
-    $st = $pdo->prepare('INSERT INTO importaciones (archivo, total, creadas, actualizadas, errores, usuario_id, creado_en) VALUES (?,?,?,?,?,?,NOW())');
-    $st->execute(array($archivo, $total, $creadas, $actualizadas, $errores, (int) $usuarioId));
+    sb()->insert('importaciones', array(
+        'archivo' => $archivo,
+        'total' => $total,
+        'creadas' => $creadas,
+        'actualizadas' => $actualizadas,
+        'errores' => $errores,
+        'usuario_id' => $usuarioId ? (int) $usuarioId : null
+    ));
 
     return array(
         'total' => $total,

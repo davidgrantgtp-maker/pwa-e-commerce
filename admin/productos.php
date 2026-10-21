@@ -2,43 +2,34 @@
 require_once dirname(__DIR__) . '/includes/layout.php';
 require_login();
 
-$pdo = db();
-
 // ---- Acciones masivas / individuales (POST) ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $accion = isset($_POST['accion']) ? $_POST['accion'] : '';
     $ids = isset($_POST['ids']) && is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : array();
-    $ids = array_filter($ids);
+    $ids = array_values(array_filter($ids));
     $volver = isset($_POST['volver']) ? $_POST['volver'] : 'productos.php';
 
     if ($ids) {
-        $in = implode(',', array_fill(0, count($ids), '?'));
+        $filtro = array('id' => sb_in($ids));
         if ($accion === 'activar') {
-            $st = $pdo->prepare("UPDATE productos SET activo = 1, actualizado_en = NOW() WHERE id IN ($in)");
-            $st->execute($ids);
+            sb()->update('productos', $filtro, array('activo' => true));
             flash_set('success', count($ids) . ' producto(s) activados.');
         } elseif ($accion === 'desactivar') {
-            $st = $pdo->prepare("UPDATE productos SET activo = 0, actualizado_en = NOW() WHERE id IN ($in)");
-            $st->execute($ids);
+            sb()->update('productos', $filtro, array('activo' => false));
             flash_set('success', count($ids) . ' producto(s) desactivados.');
         } elseif ($accion === 'destacar') {
-            $st = $pdo->prepare("UPDATE productos SET destacado = 1, actualizado_en = NOW() WHERE id IN ($in)");
-            $st->execute($ids);
+            sb()->update('productos', $filtro, array('destacado' => true));
             flash_set('success', count($ids) . ' producto(s) marcados como destacados.');
         } elseif ($accion === 'quitar_destacar') {
-            $st = $pdo->prepare("UPDATE productos SET destacado = 0, actualizado_en = NOW() WHERE id IN ($in)");
-            $st->execute($ids);
+            sb()->update('productos', $filtro, array('destacado' => false));
             flash_set('success', count($ids) . ' producto(s) quitados de destacados.');
         } elseif ($accion === 'mover') {
             $cat = isset($_POST['categoria_id']) && $_POST['categoria_id'] !== '' ? (int) $_POST['categoria_id'] : null;
-            $st = $pdo->prepare("UPDATE productos SET categoria_id = ?, actualizado_en = NOW() WHERE id IN ($in)");
-            array_unshift($ids, $cat);
-            $st->execute($ids);
-            flash_set('success', count($ids) - 1 . ' producto(s) movidos de categoría.');
+            sb()->update('productos', $filtro, array('categoria_id' => $cat));
+            flash_set('success', count($ids) . ' producto(s) movidos de categoría.');
         } elseif ($accion === 'eliminar') {
-            $st = $pdo->prepare("DELETE FROM productos WHERE id IN ($in)");
-            $st->execute($ids);
+            sb()->delete('productos', $filtro);
             flash_set('warning', count($ids) . ' producto(s) eliminados.');
         }
     } else {
@@ -55,43 +46,14 @@ $dest   = isset($_GET['dest']) ? (int) $_GET['dest'] : 0;
 $orden  = isset($_GET['orden']) ? $_GET['orden'] : 'recientes';
 $page   = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
 
-$where = array();
-$params = array();
-if ($q !== '') {
-    $where[] = '(p.nombre LIKE ? OR p.sku LIKE ? OR p.descripcion LIKE ?)';
-    $like = '%' . $q . '%';
-    $params[] = $like; $params[] = $like; $params[] = $like;
-}
-if ($cat) { $where[] = 'p.categoria_id = ?'; $params[] = $cat; }
-if ($estado === 'activos')   { $where[] = 'p.activo = 1'; }
-if ($estado === 'inactivos') { $where[] = 'p.activo = 0'; }
-if ($estado === 'agotados')  { $where[] = 'p.stock <= 0'; }
-if ($estado === 'bajo')      { $where[] = 'p.stock > 0 AND p.stock <= 5'; }
-if ($dest)                   { $where[] = 'p.destacado = 1'; }
-
-$sqlWhere = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
-
-switch ($orden) {
-    case 'nombre': $orderBy = 'p.nombre ASC'; break;
-    case 'precio_asc': $orderBy = 'p.precio ASC'; break;
-    case 'precio_desc': $orderBy = 'p.precio DESC'; break;
-    case 'stock_asc': $orderBy = 'p.stock ASC'; break;
-    default: $orderBy = 'p.id DESC';
-}
-
-$stCount = $pdo->prepare("SELECT COUNT(*) FROM productos p $sqlWhere");
-$stCount->execute($params);
-$total = (int) $stCount->fetchColumn();
-$paginas = max(1, (int) ceil($total / ITEMS_PER_PAGE));
-if ($page > $paginas) { $page = $paginas; }
-$offset = ($page - 1) * ITEMS_PER_PAGE;
-
-$sql = "SELECT p.*, c.nombre AS categoria
-        FROM productos p LEFT JOIN categorias c ON c.id = p.categoria_id
-        $sqlWhere ORDER BY $orderBy LIMIT " . (int) ITEMS_PER_PAGE . " OFFSET " . (int) $offset;
-$st = $pdo->prepare($sql);
-$st->execute($params);
-$productos = $st->fetchAll();
+$resultado = productos_buscar(array(
+    'q' => $q, 'cat' => $cat, 'estado' => $estado, 'dest' => $dest,
+    'orden' => $orden, 'page' => $page
+));
+$productos = $resultado['rows'];
+$total     = $resultado['total'];
+$paginas   = $resultado['paginas'];
+$page      = $resultado['page'];
 
 $categorias = categorias_select(false);
 

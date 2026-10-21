@@ -2,7 +2,6 @@
 require_once dirname(__DIR__) . '/includes/layout.php';
 require_login();
 
-$pdo = db();
 $user = current_user();
 
 $v = array(
@@ -26,23 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $paso = isset($_POST['paso']) ? $_POST['paso'] : 'preview';
 
-    $where = array();
-    $params = array();
-    if ($v['f_q'] !== '') {
-        $where[] = '(nombre LIKE ? OR sku LIKE ?)';
-        $like = '%' . $v['f_q'] . '%';
-        $params[] = $like; $params[] = $like;
-    }
-    if ($v['f_cat'] !== '') { $where[] = 'categoria_id = ?'; $params[] = (int) $v['f_cat']; }
-    if ($v['f_estado'] === 'activos')   { $where[] = 'activo = 1'; }
-    if ($v['f_estado'] === 'inactivos') { $where[] = 'activo = 0'; }
-    if ($v['f_estado'] === 'agotados')  { $where[] = 'stock <= 0'; }
-    if ($v['f_estado'] === 'bajo')      { $where[] = 'stock > 0 AND stock <= 5'; }
-    $sqlWhere = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
-
-    $st = $pdo->prepare("SELECT * FROM productos $sqlWhere ORDER BY id ASC");
-    $st->execute($params);
-    $lista = $st->fetchAll();
+    $res = productos_buscar(array(
+        'q' => $v['f_q'], 'cat' => (int) $v['f_cat'], 'estado' => $v['f_estado'],
+        'per_page' => 0
+    ));
+    $lista = $res['rows'];
     $afectados = count($lista);
 
     // Resumen legible
@@ -59,10 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($v['op_stock'] === 'inc') { $resumen[] = 'Stock + ' . (int) parse_numero($v['valor_stock']); }
     if ($v['op_stock'] === 'dec') { $resumen[] = 'Stock - ' . (int) parse_numero($v['valor_stock']); }
     if ($v['op_cat'] !== '') {
-        $stc = $pdo->prepare('SELECT nombre FROM categorias WHERE id = ?');
-        $stc->execute(array((int) $v['op_cat']));
-        $catNombre = $stc->fetchColumn();
-        $resumen[] = 'Categoría → ' . ($catNombre ? $catNombre : $v['op_cat']);
+        $catSel = categoria_obtener((int) $v['op_cat']);
+        $catNombre = $catSel ? $catSel['nombre'] : $v['op_cat'];
+        $resumen[] = 'Categoría → ' . $catNombre;
     }
     if ($v['op_activo'] !== '') { $resumen[] = 'Estado → ' . ($v['op_activo'] === '1' ? 'Activo' : 'Inactivo'); }
     if ($v['op_destacado'] !== '') { $resumen[] = 'Destacado → ' . ($v['op_destacado'] === '1' ? 'Sí' : 'No'); }
@@ -76,58 +62,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stockVal = (int) parse_numero($v['valor_stock']);
         $precioAntVal = parse_numero($v['valor_precio_ant']);
 
-        $upd = $pdo->prepare('UPDATE productos SET precio = ?, precio_anterior = ?, stock = ?, categoria_id = ?, activo = ?, destacado = ?, actualizado_en = NOW() WHERE id = ?');
-        $mov = $pdo->prepare('INSERT INTO movimientos (producto_id, campo, tipo, valor, motivo, usuario_id, creado_en) VALUES (?,?,?,?,?,?,NOW())');
         $uid = $user ? (int) $user['id'] : 0;
+        $updates = array();
+        $movs = array();
 
-        $pdo->beginTransaction();
-        try {
-            foreach ($lista as $p) {
-                $precio = (float) $p['precio'];
-                $stock = (int) $p['stock'];
-                $precioAnt = $p['precio_anterior'] !== null ? (float) $p['precio_anterior'] : null;
-                $catId = $p['categoria_id'] !== null ? (int) $p['categoria_id'] : null;
-                $activo = (int) $p['activo'];
-                $destacado = (int) $p['destacado'];
-                $origPrecio = $precio;
+        foreach ($lista as $p) {
+            $precio = (float) $p['precio'];
+            $stock = (int) $p['stock'];
+            $precioAnt = $p['precio_anterior'] !== null ? (float) $p['precio_anterior'] : null;
+            $catId = $p['categoria_id'] !== null ? (int) $p['categoria_id'] : null;
+            $activo = (bool) $p['activo'];
+            $destacado = (bool) $p['destacado'];
+            $origPrecio = $precio;
+            $origStock = $stock;
 
-                if ($v['op_precio'] === 'set' && $precioVal !== null) { $precio = $precioVal; }
-                if ($v['op_precio'] === 'inc' && $precioVal !== null) { $precio = $precio + $precioVal; }
-                if ($v['op_precio'] === 'dec' && $precioVal !== null) { $precio = $precio - $precioVal; }
-                if ($v['op_precio'] === 'pct_inc' && $precioVal !== null) { $precio = $precio * (1 + $precioVal / 100); }
-                if ($v['op_precio'] === 'pct_dec' && $precioVal !== null) { $precio = $precio * (1 - $precioVal / 100); }
-                if ($v['op_precio'] === 'round') { $precio = round($precio); }
-                $precio = max(0, round($precio, 2));
+            if ($v['op_precio'] === 'set' && $precioVal !== null) { $precio = $precioVal; }
+            if ($v['op_precio'] === 'inc' && $precioVal !== null) { $precio = $precio + $precioVal; }
+            if ($v['op_precio'] === 'dec' && $precioVal !== null) { $precio = $precio - $precioVal; }
+            if ($v['op_precio'] === 'pct_inc' && $precioVal !== null) { $precio = $precio * (1 + $precioVal / 100); }
+            if ($v['op_precio'] === 'pct_dec' && $precioVal !== null) { $precio = $precio * (1 - $precioVal / 100); }
+            if ($v['op_precio'] === 'round') { $precio = round($precio); }
+            $precio = max(0, round($precio, 2));
 
-                if ($v['op_precio_ant'] === 'set') { $precioAnt = $precioAntVal; }
-                if ($v['op_precio_ant'] === 'equal') { $precioAnt = $precio; }
-                if ($v['op_precio_ant'] === 'clear') { $precioAnt = null; }
+            if ($v['op_precio_ant'] === 'set') { $precioAnt = $precioAntVal; }
+            if ($v['op_precio_ant'] === 'equal') { $precioAnt = $precio; }
+            if ($v['op_precio_ant'] === 'clear') { $precioAnt = null; }
 
-                if ($v['op_stock'] === 'set') { $stock = $stockVal; }
-                if ($v['op_stock'] === 'inc') { $stock = $stock + $stockVal; }
-                if ($v['op_stock'] === 'dec') { $stock = $stock - $stockVal; }
-                $stock = (int) $stock;
+            if ($v['op_stock'] === 'set') { $stock = $stockVal; }
+            if ($v['op_stock'] === 'inc') { $stock = $stock + $stockVal; }
+            if ($v['op_stock'] === 'dec') { $stock = $stock - $stockVal; }
+            $stock = (int) $stock;
 
-                if ($v['op_cat'] !== '') { $catId = (int) $v['op_cat']; }
-                if ($v['op_activo'] !== '') { $activo = (int) $v['op_activo']; }
-                if ($v['op_destacado'] !== '') { $destacado = (int) $v['op_destacado']; }
+            if ($v['op_cat'] !== '') { $catId = (int) $v['op_cat']; }
+            if ($v['op_activo'] !== '') { $activo = (bool) (int) $v['op_activo']; }
+            if ($v['op_destacado'] !== '') { $destacado = (bool) (int) $v['op_destacado']; }
 
-                $upd->execute(array($precio, $precioAnt, $stock, $catId, $activo, $destacado, (int) $p['id']));
+            $updates[] = array(
+                'id' => (int) $p['id'],
+                'precio' => $precio,
+                'precio_anterior' => $precioAnt === null ? '' : (string) $precioAnt,
+                'stock' => $stock,
+                'categoria_id' => $catId === null ? '' : (string) $catId,
+                'activo' => $activo,
+                'destacado' => $destacado
+            );
 
-                if ($v['op_precio'] !== '' && abs($precio - $origPrecio) > 0.001) {
-                    $mov->execute(array((int) $p['id'], 'precio', $v['op_precio'], (string) $precio, 'Actualización masiva', $uid));
-                }
-                if ($v['op_stock'] !== '' && $stock !== (int) $p['stock']) {
-                    $mov->execute(array((int) $p['id'], 'stock', $v['op_stock'], (string) $stock, 'Actualización masiva', $uid));
-                }
-                if ($v['op_precio_ant'] !== '') {
-                    $mov->execute(array((int) $p['id'], 'precio_anterior', $v['op_precio_ant'], $precioAnt === null ? '' : (string) $precioAnt, 'Actualización masiva', $uid));
-                }
+            if ($v['op_precio'] !== '' && abs($precio - $origPrecio) > 0.001) {
+                $movs[] = array('producto_id' => (int) $p['id'], 'campo' => 'precio', 'tipo' => $v['op_precio'], 'valor' => (string) $precio, 'motivo' => 'Actualización masiva', 'usuario_id' => $uid);
             }
-            $pdo->commit();
+            if ($v['op_stock'] !== '' && $stock !== $origStock) {
+                $movs[] = array('producto_id' => (int) $p['id'], 'campo' => 'stock', 'tipo' => $v['op_stock'], 'valor' => (string) $stock, 'motivo' => 'Actualización masiva', 'usuario_id' => $uid);
+            }
+            if ($v['op_precio_ant'] !== '') {
+                $movs[] = array('producto_id' => (int) $p['id'], 'campo' => 'precio_anterior', 'tipo' => $v['op_precio_ant'], 'valor' => $precioAnt === null ? '' : (string) $precioAnt, 'motivo' => 'Actualización masiva', 'usuario_id' => $uid);
+            }
+        }
+
+        try {
+            sb()->rpc('aplicar_masivo', array(
+                'p_updates' => $updates,
+                'p_movs' => $movs,
+                'p_uid' => $uid
+            ));
             flash_set('success', 'Actualización masiva aplicada a ' . $afectados . ' producto(s).');
         } catch (Exception $e) {
-            $pdo->rollBack();
             flash_set('danger', 'Error al aplicar: ' . $e->getMessage());
         }
         redirect('masivo.php');

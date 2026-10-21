@@ -68,7 +68,7 @@ function admin_footer()
     ?>
     </main>
     <footer class="admin-foot">
-      <?php echo h(APP_NAME); ?> · Admin · <?php echo date('Y'); ?> · PHP <?php echo PHP_VERSION; ?> / MariaDB
+      <?php echo h(APP_NAME); ?> · Admin · <?php echo date('Y'); ?> · PHP <?php echo PHP_VERSION; ?> / Supabase
     </footer>
   </div>
 </div>

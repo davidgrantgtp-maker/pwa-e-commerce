@@ -2,7 +2,6 @@
 require_once dirname(__DIR__) . '/includes/layout.php';
 require_login();
 
-$pdo = db();
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $errores = array();
 
@@ -13,9 +12,7 @@ $prod = array(
 );
 
 if ($id) {
-    $st = $pdo->prepare('SELECT * FROM productos WHERE id = ?');
-    $st->execute(array($id));
-    $encontrado = $st->fetch();
+    $encontrado = producto_obtener($id);
     if (!$encontrado) {
         flash_set('danger', 'El producto no existe.');
         redirect('productos.php');
@@ -26,8 +23,7 @@ if ($id) {
 // Eliminar
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar'])) {
     csrf_check();
-    $st = $pdo->prepare('DELETE FROM productos WHERE id = ?');
-    $st->execute(array($id));
+    producto_eliminar($id);
     flash_set('warning', 'Producto eliminado.');
     redirect('productos.php');
 }
@@ -84,18 +80,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['eliminar'])) {
         $catId = $prod['categoria_id'] !== '' ? (int) $prod['categoria_id'] : null;
         $sku = $prod['sku'] !== '' ? $prod['sku'] : null;
 
-        if ($id) {
-            $st = $pdo->prepare('UPDATE productos SET sku=?, nombre=?, categoria_id=?, precio=?, precio_anterior=?, costo=?, stock=?, descripcion=?, imagen=?, etiqueta=?, destacado=?, activo=?, actualizado_en=NOW() WHERE id=?');
-            $st->execute(array($sku, $prod['nombre'], $catId, $precio, $precioAnterior, $costo, (int) $stock, $prod['descripcion'], $prod['imagen'], $prod['etiqueta'], $prod['destacado'], $prod['activo'], $id));
-            flash_set('success', 'Producto actualizado.');
-        } else {
-            $slug = unique_slug('productos', slugify($prod['nombre']));
-            $st = $pdo->prepare('INSERT INTO productos (sku, nombre, slug, categoria_id, precio, precio_anterior, costo, stock, descripcion, imagen, etiqueta, destacado, activo, creado_en) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
-            $st->execute(array($sku, $prod['nombre'], $slug, $catId, $precio, $precioAnterior, $costo, (int) $stock, $prod['descripcion'], $prod['imagen'], $prod['etiqueta'], $prod['destacado'], $prod['activo']));
-            $id = (int) $pdo->lastInsertId();
-            flash_set('success', 'Producto creado.');
+        $data = array(
+            'sku' => $sku,
+            'nombre' => $prod['nombre'],
+            'categoria_id' => $catId,
+            'precio' => $precio,
+            'precio_anterior' => $precioAnterior,
+            'costo' => $costo,
+            'stock' => (int) $stock,
+            'descripcion' => $prod['descripcion'],
+            'imagen' => $prod['imagen'],
+            'etiqueta' => $prod['etiqueta'],
+            'destacado' => (bool) $prod['destacado'],
+            'activo' => (bool) $prod['activo']
+        );
+
+        try {
+            if ($id) {
+                producto_actualizar($id, $data);
+                flash_set('success', 'Producto actualizado.');
+            } else {
+                $data['slug'] = unique_slug('productos', slugify($prod['nombre']));
+                $id = producto_crear($data);
+                flash_set('success', 'Producto creado.');
+            }
+            redirect('producto-editar.php?id=' . $id);
+        } catch (Exception $e) {
+            $errores[] = 'No se pudo guardar: ' . $e->getMessage();
         }
-        redirect('producto-editar.php?id=' . $id);
     }
 }
 

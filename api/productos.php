@@ -6,13 +6,11 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, max-age=0');
 
 try {
-    $pdo = db();
-    $sql = "SELECT p.*, c.nombre AS categoria
-            FROM productos p
-            LEFT JOIN categorias c ON c.id = p.categoria_id
-            WHERE p.activo = 1
-            ORDER BY p.destacado DESC, p.id DESC";
-    $rows = $pdo->query($sql)->fetchAll();
+    $rows = sb_public()->get('productos', array(
+        'select' => '*,categorias(nombre)',
+        'activo' => 'is.true',
+        'order'  => 'destacado.desc,id.desc'
+    ));
 
     $out = array();
     foreach ($rows as $p) {
@@ -21,12 +19,13 @@ try {
         if (strpos($imagen, 'img/') === 0) {
             $fallback = $imagen;
         }
+        $categoria = isset($p['categorias']['nombre']) ? $p['categorias']['nombre'] : null;
         $out[] = array(
             'id'          => $p['slug'],
             'dbId'        => (int) $p['id'],
             'sku'         => $p['sku'],
             'name'        => $p['nombre'],
-            'category'    => $p['categoria'] ? $p['categoria'] : 'Otros',
+            'category'    => $categoria ? $categoria : 'Otros',
             'price'       => (float) $p['precio'],
             'oldPrice'    => $p['precio_anterior'] !== null ? (float) $p['precio_anterior'] : null,
             'tag'         => (string) $p['etiqueta'],
