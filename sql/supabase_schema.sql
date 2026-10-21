@@ -5,8 +5,8 @@
 --   1. Entrá al panel de Supabase del proyecto.
 --   2. Menú "SQL Editor" -> "New query".
 --   3. Pegá TODO este archivo y ejecutá "Run".
---   4. Después abrí install.php en el navegador para crear el usuario
---      admin y los datos de ejemplo (se hace vía API, con password_hash).
+--   4. Listo: al final del archivo se crean el usuario admin y los datos
+--      de ejemplo (idempotente). install.php queda como alternativa local.
 --
 --  El panel de administración usa la service_role key (omite RLS).
 --  La tienda usa la anon key y sólo puede leer productos/categorías activos.
@@ -119,6 +119,13 @@ create policy "catalogo lectura categorias"
 
 -- usuarios / importaciones / movimientos: sin políticas => sólo service_role.
 
+-- Permisos explícitos (por si el proyecto no aplicó los privilegios por defecto).
+grant select on public.productos to anon, authenticated;
+grant select on public.categorias to anon, authenticated;
+grant all privileges on public.usuarios, public.categorias, public.productos,
+  public.importaciones, public.movimientos to service_role;
+grant usage, select on all sequences in schema public to service_role;
+
 -- ---------------------------------------------------------------------
 -- FUNCIONES RPC (las usa el panel con service_role)
 -- ---------------------------------------------------------------------
@@ -214,3 +221,72 @@ begin
 
   return n;
 end $$;
+
+-- Las RPC del panel no deben ser ejecutables por anon/authenticated.
+revoke execute on function public.dashboard_stats() from public, anon, authenticated;
+revoke execute on function public.por_categoria() from public, anon, authenticated;
+revoke execute on function public.stock_critico(integer) from public, anon, authenticated;
+revoke execute on function public.categorias_con_conteo() from public, anon, authenticated;
+revoke execute on function public.ultimos_movimientos(integer) from public, anon, authenticated;
+revoke execute on function public.ultimas_importaciones(integer) from public, anon, authenticated;
+revoke execute on function public.aplicar_masivo(jsonb, jsonb, bigint) from public, anon, authenticated;
+
+grant execute on function public.dashboard_stats() to service_role;
+grant execute on function public.por_categoria() to service_role;
+grant execute on function public.stock_critico(integer) to service_role;
+grant execute on function public.categorias_con_conteo() to service_role;
+grant execute on function public.ultimos_movimientos(integer) to service_role;
+grant execute on function public.ultimas_importaciones(integer) to service_role;
+grant execute on function public.aplicar_masivo(jsonb, jsonb, bigint) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- Semilla idempotente: usuario admin + categorías y productos de ejemplo.
+-- Se puede ejecutar varias veces sin duplicar datos.
+-- ---------------------------------------------------------------------------
+insert into public.usuarios (nombre, email, password_hash, rol, activo)
+select 'Administrador', 'admin@miapp.local',
+       '$2y$10$isy/vwe4pmBO8.ajoMORyeUfXeGC82jC9iCRI1xLCadSs4lknw4ha',
+       'admin', true
+where not exists (select 1 from public.usuarios where email = 'admin@miapp.local');
+
+insert into public.categorias (nombre, slug, activo, orden)
+select v.nombre, v.slug, true, v.orden
+from (values
+  ('Cafés', 'cafes', 0),
+  ('Bebidas', 'bebidas', 1),
+  ('Comida', 'comida', 2),
+  ('Accesorios', 'accesorios', 3)
+) as v(nombre, slug, orden)
+where not exists (select 1 from public.categorias c where c.slug = v.slug);
+
+insert into public.productos
+  (sku, nombre, slug, categoria_id, precio, precio_anterior, stock, descripcion, etiqueta, imagen, destacado, activo)
+select v.sku, v.nombre, v.slug, c.id, v.precio, v.precio_anterior, v.stock,
+       v.descripcion, v.etiqueta, v.imagen, v.destacado, true
+from (values
+  ('CG-500', 'Café en grano 500 g', 'cafe-en-grano-500-g', 'Cafés', 8500, 9900, 60,
+   'Blend de especialidad tostado medio. Notas a chocolate, avellanas y frutas rojas.', 'Más vendido', 'img/cafe-grano.svg', true),
+  ('CM-250', 'Café molido 250 g', 'cafe-molido-250-g', 'Cafés', 5200, null, 45,
+   'Molienda media para filtro. Origen Colombia, tueste artesanal.', '', '', false),
+  ('CB-1000', 'Cold brew 1 L', 'cold-brew-1-l', 'Bebidas', 4800, null, 24,
+   'Café extraído en frío durante 18 horas. Suave, dulce y baja acidez.', 'Nuevo', '', true),
+  ('ML-001', 'Matcha latte', 'matcha-latte', 'Bebidas', 4200, null, 30,
+   'Matcha ceremonial japonés con leche. Frío o caliente.', '', '', false),
+  ('MD-6', 'Medialunas x6', 'medialunas-x6', 'Comida', 3600, null, 40,
+   'Medialunas de manteca horneadas cada mañana.', 'Recién horneadas', '', true),
+  ('TC-KG', 'Torta de chocolate', 'torta-de-chocolate', 'Comida', 7900, null, 12,
+   'Bizcochuelo húmedo de cacao con ganache semiamargo. Para 6 personas.', '', '', false),
+  ('TZ-300', 'Taza de cerámica', 'taza-de-ceramica', 'Accesorios', 6500, null, 18,
+   'Taza de 300 ml hecha a mano. Apta microondas y lavavajillas.', '', '', false),
+  ('TM-500', 'Termo 500 ml', 'termo-500-ml', 'Accesorios', 12900, 14900, 15,
+   'Termo de acero inoxidable con doble pared. Mantiene 12 horas.', 'Envío gratis', '', true),
+  ('PF-600', 'Prensa francesa', 'prensa-francesa', 'Accesorios', 18500, null, 8,
+   'Prensa francesa de vidrio borosilicato de 600 ml con filtro de acero.', '', '', false),
+  ('CB-DES', 'Combo desayuno', 'combo-desayuno', 'Comida', 14500, 16400, 10,
+   'Café en grano 250 g + 6 medialunas + taza de cerámica.', 'Ahorrás $1.900', '', true)
+) as v(sku, nombre, slug, categoria, precio, precio_anterior, stock, descripcion, etiqueta, imagen, destacado)
+join public.categorias c on c.nombre = v.categoria
+where not exists (select 1 from public.productos p where p.slug = v.slug);
+
+-- Fuerza a PostgREST a recargar el esquema (tablas y RPC recién creadas).
+notify pgrst, 'reload schema';

@@ -1,4 +1,4 @@
-const CACHE = 'miapp-store-v3';
+const CACHE = 'miapp-store-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS = [
   './perfil.html',
   './manifest.json',
   './css/styles.css',
+  './js/supabase-config.js',
   './js/products.js',
   './js/shop.js',
   './js/app.js',

@@ -1,0 +1,36 @@
+[build]
+  command = "node scripts/build-static.js"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  node_bundler = "esbuild"
+
+[functions.importar]
+  timeout = 26
+
+[functions.masivo]
+  timeout = 26
+
+# El panel es una SPA: cualquier ruta bajo /admin/ sirve index.html.
+# Los archivos existentes (assets, etc.) tienen prioridad sobre el redirect.
+[[redirects]]
+  from = "/admin"
+  to = "/admin/index.html"
+  status = 301
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"

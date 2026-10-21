@@ -93,7 +93,7 @@
     if (!Array.isArray(apiCats) || !apiCats.length) return null;
     var names = [];
     apiCats.forEach(function (c) {
-      var name = typeof c === 'string' ? c : c.name;
+      var name = typeof c === 'string' ? c : (c.nombre || c.name);
       if (name && names.indexOf(name) < 0) names.push(name);
     });
     if (names.indexOf('Todos') < 0) names.unshift('Todos');
@@ -127,35 +127,65 @@
   var loading = false;
   var queue = [];
 
-  function loadProducts(cb) {
-    if (typeof cb === 'function') {
-      if (loading) { queue.push(cb); } else { queue.push(cb); }
+  function restGet(path, params) {
+    var cfg = window.SUPABASE_CONFIG;
+    if (!cfg || !cfg.url || !cfg.anonKey) {
+      return Promise.reject(new Error('Supabase no configurado'));
     }
+    var query = new URLSearchParams(params).toString();
+    return fetch(cfg.url.replace(/\/$/, '') + '/rest/v1/' + path + '?' + query, {
+      headers: {
+        apikey: cfg.anonKey,
+        Authorization: 'Bearer ' + cfg.anonKey
+      },
+      cache: 'no-store'
+    }).then(function (r) {
+      if (!r.ok) throw new Error('Supabase ' + r.status);
+      return r.json();
+    });
+  }
+
+  function mapProduct(row) {
+    return {
+      id: row.slug,
+      name: row.nombre,
+      category: row.categorias ? row.categorias.nombre : '',
+      price: Number(row.precio) || 0,
+      oldPrice: row.precio_anterior === null || row.precio_anterior === undefined ? null : Number(row.precio_anterior),
+      tag: row.etiqueta || '',
+      featured: !!row.destacado,
+      image: row.imagen || 'img/placeholder.svg',
+      fallback: 'img/placeholder.svg',
+      description: row.descripcion || '',
+      sku: row.sku || '',
+      stock: Number(row.stock) || 0
+    };
+  }
+
+  function loadProducts(cb) {
+    if (typeof cb === 'function') queue.push(cb);
     if (loading) return;
     loading = true;
 
-    var productsReq = fetch('./api/productos.php', { cache: 'no-store' }).then(function (r) {
-      if (!r.ok) throw new Error('API productos');
-      return r.json();
+    var productsReq = restGet('productos', {
+      select: '*,categorias(nombre)',
+      activo: 'is.true',
+      order: 'id.desc',
+      limit: '500'
     });
 
-    var catsReq = fetch('./api/categorias.php', { cache: 'no-store' }).then(function (r) {
-      if (!r.ok) throw new Error('API categorías');
-      return r.json();
+    var catsReq = restGet('categorias', {
+      select: 'nombre',
+      activo: 'is.true',
+      order: 'orden.asc,nombre.asc'
     }).catch(function () { return null; });
 
     Promise.all([productsReq, catsReq]).then(function (res) {
-      var products = res[0];
+      var products = (res[0] || []).map(mapProduct);
       var cats = normalizeCats(res[1]);
-      if (Array.isArray(products) && products.length) {
-        apply(products, cats);
-      } else if (cats) {
-        window.CATEGORIES = cats;
-        writeCache(CATS_KEY, cats);
-        notify();
-      }
+      apply(products, cats);
     }).catch(function () {
-      /* sin conexión o API no disponible: se usa caché o semilla */
+      /* sin conexión: se usa caché o semilla */
     }).then(function () {
       loading = false;
       var cbs = queue.slice();

@@ -1,6 +1,10 @@
 # Credenciales locales (nunca versionar)
 config/supabase.php
 
+# Build de Netlify
+dist/
+node_modules/
+
 # Subidas del panel
 uploads/*
 

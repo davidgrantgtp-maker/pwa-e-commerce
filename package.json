@@ -1,0 +1,17 @@
+{
+  "name": "miapp-store",
+  "private": true,
+  "version": "1.0.0",
+  "description": "MiApp Store - PWA + panel de administración sobre Supabase, desplegado en Netlify",
+  "scripts": {
+    "build": "node scripts/build-static.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
