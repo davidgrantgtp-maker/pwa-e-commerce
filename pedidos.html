@@ -39,7 +39,7 @@
 
       <div id="orders-list" class="space-y-3"></div>
 
-      <p class="text-[11px] text-gray-600 text-center mt-6">Los pedidos se guardan solo en este dispositivo (localStorage). No hay base de datos ni servidor.</p>
+      <p class="text-[11px] text-gray-600 text-center mt-6">Los pedidos se guardan solo en este dispositivo (localStorage).</p>
     </main>
 
     <nav class="tabbar fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-gray-950/95 backdrop-blur border-t border-gray-800 z-20">
@@ -67,6 +67,7 @@
   </div>
 
   <script src="./js/supabase-config.js"></script>
+  <script src="./js/storefront.js"></script>
   <script src="./js/products.js"></script>
   <script src="./js/shop.js"></script>
   <script src="./js/app.js"></script>
@@ -118,7 +119,7 @@
         if (!order) return;
         const link = Shop.whatsappLink(order);
         if (!link) {
-          window.miappToast('Configurá el WhatsApp del vendedor en Perfil');
+          window.miappToast('La tienda todavía no configuró su WhatsApp');
           return;
         }
         window.open(link, '_blank');

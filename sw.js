@@ -1,5 +1,5 @@
-const CACHE = 'miapp-store-v4';
-const ASSETS = [
+const CACHE = 'miapp-store-v5';
+const PRECACHE = [
   './',
   './index.html',
   './producto.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './manifest.json',
   './css/styles.css',
   './js/supabase-config.js',
+  './js/storefront.js',
   './js/products.js',
   './js/shop.js',
   './js/app.js',
@@ -30,56 +31,76 @@ const ASSETS = [
   './img/combo-desayuno.svg'
 ];
 
+const IMAGE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico)$/i;
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then((cache) => Promise.all(PRECACHE.map((url) => cache.add(url).catch(() => null))))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
   );
 });
 
+async function networkFirst(request, fallback) {
+  const cache = await caches.open(CACHE);
+  try {
+    const response = await fetch(request, { cache: 'no-store' });
+    if (response && response.ok) cache.put(request, response.clone());
+    return response;
+  } catch (error) {
+    const cached = await cache.match(request, { ignoreSearch: true });
+    if (cached) return cached;
+    if (fallback) {
+      const offline = await cache.match(fallback);
+      if (offline) return offline;
+    }
+    return Response.error();
+  }
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(request, { ignoreSearch: true });
+  if (cached) {
+    fetch(request)
+      .then((response) => {
+        if (response && response.ok) cache.put(request, response.clone());
+      })
+      .catch(() => {});
+    return cached;
+  }
+  const response = await fetch(request);
+  if (response && response.ok) cache.put(request, response.clone());
+  return response;
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  // El panel de administración y el instalador nunca se cachean.
-  if (url.pathname.indexOf('/admin/') !== -1 || url.pathname.indexOf('/install.php') !== -1) return;
+  // El panel, las funciones y el instalador siempre van directo a la red.
+  if (url.pathname.includes('/admin') || url.pathname.includes('/install.php') || url.pathname.includes('/.netlify/')) return;
 
-  // API: red primero, caché como respaldo offline.
-  if (url.pathname.indexOf('/api/') !== -1) {
-    event.respondWith(
-      fetch(event.request)
-        .then((res) => {
-          if (res && res.status === 200) {
-            const copy = res.clone();
-            caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-          }
-          return res;
-        })
-        .catch(() => caches.match(event.request, { ignoreSearch: true }))
-    );
+  if (event.request.mode === 'navigate' || /\.(?:html|css|js|json|webmanifest)$/i.test(url.pathname)) {
+    event.respondWith(networkFirst(event.request, './index.html'));
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then((cached) => {
-      const network = fetch(event.request)
-        .then((res) => {
-          if (res && res.status === 200) {
-            const copy = res.clone();
-            caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-          }
-          return res;
-        })
-        .catch(() => cached || caches.match('./index.html'));
-      return cached || network;
-    })
-  );
+  if (IMAGE.test(url.pathname)) {
+    event.respondWith(cacheFirst(event.request));
+  }
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });

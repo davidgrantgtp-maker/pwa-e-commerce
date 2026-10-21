@@ -1,22 +1,28 @@
-/* MiApp Store - carrito, pedidos y WhatsApp con localStorage (sin backend) */
+/* MiApp Store - carrito, pedidos, comprador y WhatsApp (localStorage + Supabase) */
 (function () {
   'use strict';
 
   var CART_KEY = 'miapp_cart_v1';
   var ORDERS_KEY = 'miapp_orders_v1';
   var SETTINGS_KEY = 'miapp_settings_v1';
+  var BUYER_KEY = 'miapp_buyer_v1';
   var COUPON_KEY = 'miapp_coupon_v1';
-  var COUPON_CODE = 'DEMO10';
 
   var DEFAULTS = {
-    nombre: 'Usuario Demo',
     notif: true,
     dark: true,
     idioma: 'es',
     sellerPhone: '',
+    whatsapp: '',
     storeName: 'MiApp Store',
+    email: '',
+    address: '',
+    hours: '',
+    instagram: '',
     envioCosto: 1490,
-    envioGratisDesde: 15000
+    envioGratisDesde: 15000,
+    cuponCodigo: 'DEMO10',
+    cuponDescuento: 10
   };
 
   function readJSON(key, fallback) {
@@ -52,11 +58,51 @@
   }
 
   function getSettings() {
-    return Object.assign({}, DEFAULTS, readJSON(SETTINGS_KEY, {}));
+    var prefs = readJSON(SETTINGS_KEY, {});
+    var remote = window.STORE_CONFIG || {};
+    var settings = Object.assign({}, DEFAULTS, remote);
+
+    settings.dark = prefs.dark === undefined ? DEFAULTS.dark : !!prefs.dark;
+    settings.notif = prefs.notif === undefined ? DEFAULTS.notif : !!prefs.notif;
+    settings.idioma = prefs.idioma || DEFAULTS.idioma;
+
+    // Compatibilidad con instalaciones anteriores: el WhatsApp y el nombre
+    // del vendedor ahora vienen del panel, pero si todavía no se configuraron
+    // se conserva el valor local como respaldo.
+    if (!window.STORE_CONFIG_REMOTE) {
+      if (!settings.whatsapp && prefs.sellerPhone) settings.whatsapp = prefs.sellerPhone;
+      if (!settings.storeName && prefs.storeName) settings.storeName = prefs.storeName;
+    }
+    settings.sellerPhone = settings.whatsapp;
+
+    return settings;
   }
 
   function saveSettings(patch) {
-    writeJSON(SETTINGS_KEY, Object.assign(getSettings(), patch || {}));
+    patch = patch || {};
+    var prefs = readJSON(SETTINGS_KEY, {});
+    if (patch.dark !== undefined) prefs.dark = !!patch.dark;
+    if (patch.notif !== undefined) prefs.notif = !!patch.notif;
+    if (patch.idioma !== undefined) prefs.idioma = patch.idioma;
+    writeJSON(SETTINGS_KEY, prefs);
+  }
+
+  function getBuyer() {
+    var buyer = readJSON(BUYER_KEY, null);
+    if (!buyer || typeof buyer !== 'object' || Array.isArray(buyer)) buyer = {};
+    var legacy = readJSON(SETTINGS_KEY, {});
+    return {
+      nombre: buyer.nombre || legacy.nombre || '',
+      telefono: buyer.telefono || '',
+      email: buyer.email || legacy.email || '',
+      direccion: buyer.direccion || '',
+      ciudad: buyer.ciudad || '',
+      notas: buyer.notas || ''
+    };
+  }
+
+  function saveBuyer(patch) {
+    writeJSON(BUYER_KEY, Object.assign(getBuyer(), patch || {}));
   }
 
   function getCart() {
@@ -132,21 +178,35 @@
     }
   }
 
+  function couponConfig() {
+    var settings = getSettings();
+    return {
+      code: String(settings.cuponCodigo || '').trim().toUpperCase(),
+      percent: Math.max(0, Math.min(100, Number(settings.cuponDescuento) || 0))
+    };
+  }
+
   function applyCoupon(code) {
     var normalized = String(code || '').trim().toUpperCase();
+    var coupon = couponConfig();
     if (!normalized) {
       setCoupon('');
       return { ok: true, message: 'Cupón quitado.' };
     }
-    if (normalized === COUPON_CODE) {
+    if (coupon.code && normalized === coupon.code) {
       setCoupon(normalized);
-      return { ok: true, message: 'Cupón aplicado: 10% de descuento.' };
+      return { ok: true, message: 'Cupón aplicado: ' + coupon.percent + '% de descuento.' };
     }
-    return { ok: false, message: 'Cupón inválido. Probá con DEMO10.' };
+    return {
+      ok: false,
+      message: coupon.code ? 'Cupón inválido.' : 'La tienda no tiene cupones activos.'
+    };
   }
 
   function discountFor(subtotal) {
-    return getCoupon() === COUPON_CODE ? Math.round(subtotal * 0.1) : 0;
+    var coupon = couponConfig();
+    if (!coupon.code || getCoupon() !== coupon.code) return 0;
+    return Math.round(subtotal * (coupon.percent / 100));
   }
 
   function totals() {
@@ -259,7 +319,7 @@
   }
 
   function whatsappLink(order) {
-    var phone = normalizePhone(getSettings().sellerPhone);
+    var phone = normalizePhone(getSettings().whatsapp || getSettings().sellerPhone);
     if (!phone) return '';
     return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(orderMessage(order));
   }
@@ -307,6 +367,8 @@
     getProduct: getProduct,
     getSettings: getSettings,
     saveSettings: saveSettings,
+    getBuyer: getBuyer,
+    saveBuyer: saveBuyer,
     getCart: getCart,
     setCart: setCart,
     addToCart: addToCart,
@@ -325,6 +387,6 @@
     orderMessage: orderMessage,
     whatsappLink: whatsappLink,
     updateBadges: updateBadges,
-    couponCode: COUPON_CODE
+    get couponCode() { return couponConfig().code; }
   };
 })();

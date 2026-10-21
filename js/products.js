@@ -125,6 +125,7 @@
   }
 
   var loading = false;
+  var lastLoad = 0;
   var queue = [];
 
   function restGet(path, params) {
@@ -188,6 +189,7 @@
       /* sin conexión: se usa caché o semilla */
     }).then(function () {
       loading = false;
+      lastLoad = Date.now();
       var cbs = queue.slice();
       queue = [];
       cbs.forEach(function (fn) { try { fn(); } catch (e) {} });
@@ -195,5 +197,23 @@
   }
 
   window.loadProducts = loadProducts;
+  window.refreshProducts = function (force) {
+    if (!force && Date.now() - lastLoad < 30000) return;
+    loadProducts();
+  };
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') window.refreshProducts(true);
+  });
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) window.refreshProducts(true);
+  });
+  window.addEventListener('focus', function () {
+    window.refreshProducts(false);
+  });
+  window.addEventListener('online', function () {
+    window.refreshProducts(true);
+  });
+
   loadProducts();
 })();
