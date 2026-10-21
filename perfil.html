@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111827" />
-  <meta name="description" content="Perfil, datos de la tienda y ajustes - MiApp Store" />
-  <title>Perfil · MiApp Store</title>
+  <meta name="description" content="Perfil del comprador y preferencias - MiApp Store" />
+  <title>Mi perfil · MiApp Store</title>
   <link rel="manifest" href="./manifest.json" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
@@ -18,21 +18,20 @@
     <header class="sticky top-0 z-20 bg-gray-950/90 backdrop-blur border-b border-gray-800 safe-top">
       <div class="flex items-center gap-3 px-4 pt-3 pb-3">
         <a href="./index.html" class="w-9 h-9 rounded-2xl bg-cyan-400 text-gray-950 font-black grid place-items-center text-lg shrink-0">M</a>
-        <div class="flex-1">
-          <p class="font-bold leading-none">Perfil</p>
-          <p class="text-xs text-gray-400 mt-0.5">Datos solo en este dispositivo</p>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold leading-none">Mi perfil</p>
+          <p class="text-xs text-gray-400 mt-0.5">Datos del comprador · solo en este dispositivo</p>
         </div>
       </div>
     </header>
 
     <main class="flex-1 px-4 pb-28 pt-4 space-y-4">
-      <section class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex items-center gap-4">
-        <div id="p-avatar" class="w-14 h-14 rounded-2xl bg-cyan-400 text-gray-950 text-2xl font-black grid place-items-center">U</div>
+      <section class="bg-gradient-to-br from-cyan-500/15 via-gray-900 to-gray-900 border border-cyan-400/20 rounded-3xl p-4 flex items-center gap-4">
+        <div id="p-avatar" class="w-16 h-16 rounded-3xl bg-cyan-400 text-gray-950 text-2xl font-black grid place-items-center shrink-0">U</div>
         <div class="flex-1 min-w-0">
-          <label class="text-[11px] text-gray-400 font-semibold" for="p-nombre">TU NOMBRE</label>
-          <input id="p-nombre" type="text" maxlength="30" value="Usuario Demo"
-            class="w-full bg-transparent font-bold text-lg outline-none border-b border-transparent focus:border-cyan-400" />
-          <p class="text-xs text-gray-500">Se usa para completar el checkout</p>
+          <p class="text-[11px] font-bold tracking-widest text-cyan-300">COMPRADOR</p>
+          <p id="p-display-name" class="font-extrabold text-lg leading-tight truncate">Invitado</p>
+          <p class="text-[11px] text-gray-400 mt-0.5">Completá tus datos para comprar más rápido.</p>
         </div>
       </section>
 
@@ -45,34 +44,56 @@
           <p id="stat-cart" class="font-extrabold text-cyan-300">0</p>
           <p class="text-[11px] text-gray-400">En carrito</p>
         </a>
-        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-3">
-          <p class="font-extrabold text-cyan-300">v2.0</p>
-          <p class="text-[11px] text-gray-400">Versión</p>
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-3 min-w-0">
+          <p id="stat-spent" class="font-extrabold text-cyan-300 text-sm truncate">$0</p>
+          <p class="text-[11px] text-gray-400">Total gastado</p>
         </div>
       </div>
 
-      <section class="bg-gray-900 border border-cyan-400/30 rounded-2xl overflow-hidden">
-        <div class="px-4 pt-4 pb-2">
-          <h2 class="font-bold">Datos del vendedor</h2>
-          <p class="text-[11px] text-gray-400 mt-0.5">El pedido se enviará a este WhatsApp de forma manual.</p>
+      <section class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+        <div class="px-4 pt-4 pb-1">
+          <h2 class="font-bold">Datos de contacto y entrega</h2>
+          <p class="text-[11px] text-gray-400 mt-0.5">Se completan automáticamente en el checkout.</p>
         </div>
-        <div class="px-4 pb-4 space-y-3">
+        <div class="p-4 space-y-3">
           <div>
-            <label for="set-store" class="text-[11px] font-bold text-gray-400">NOMBRE DE LA TIENDA</label>
-            <input id="set-store" type="text" maxlength="30" placeholder="MiApp Store"
+            <label for="p-nombre" class="text-[11px] font-bold text-gray-400">NOMBRE Y APELLIDO *</label>
+            <input id="p-nombre" type="text" maxlength="60" autocomplete="name" placeholder="Ej: Ana Pérez"
               class="w-full mt-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600" />
           </div>
           <div>
-            <label for="set-phone" class="text-[11px] font-bold text-gray-400">WHATSAPP DEL VENDEDOR</label>
-            <input id="set-phone" type="tel" inputmode="tel" placeholder="Ej: 5491155551234"
+            <label for="p-tel" class="text-[11px] font-bold text-gray-400">WHATSAPP / TELÉFONO</label>
+            <input id="p-tel" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" placeholder="Ej: 11 5555 1234"
               class="w-full mt-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600" />
-            <p class="text-[11px] text-gray-500 mt-1">Con código de país, sin + ni espacios. Ej: 5491155551234</p>
           </div>
+          <div>
+            <label for="p-email" class="text-[11px] font-bold text-gray-400">EMAIL</label>
+            <input id="p-email" type="email" maxlength="120" autocomplete="email" placeholder="Ej: ana@email.com"
+              class="w-full mt-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600" />
+          </div>
+          <div>
+            <label for="p-dir" class="text-[11px] font-bold text-gray-400">DIRECCIÓN DE ENTREGA</label>
+            <input id="p-dir" type="text" maxlength="160" autocomplete="street-address" placeholder="Calle, número, piso"
+              class="w-full mt-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600" />
+          </div>
+          <div>
+            <label for="p-ciudad" class="text-[11px] font-bold text-gray-400">CIUDAD / LOCALIDAD</label>
+            <input id="p-ciudad" type="text" maxlength="80" autocomplete="address-level2" placeholder="Ej: CABA"
+              class="w-full mt-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600" />
+          </div>
+          <div>
+            <label for="p-notas" class="text-[11px] font-bold text-gray-400">NOTAS DE ENTREGA (OPCIONAL)</label>
+            <textarea id="p-notas" rows="2" maxlength="200" placeholder="Horario preferido, timbre, referencias…"
+              class="w-full mt-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600 resize-none"></textarea>
+          </div>
+          <button id="p-save" type="button" class="w-full bg-cyan-400 text-gray-950 font-bold py-3 rounded-xl active:scale-[0.98] transition">
+            Guardar mis datos
+          </button>
         </div>
       </section>
 
       <section class="bg-gray-900 border border-gray-800 rounded-2xl divide-y divide-gray-800 overflow-hidden">
-        <h2 class="font-bold px-4 pt-4 pb-2">Ajustes</h2>
+        <h2 class="font-bold px-4 pt-4 pb-2">Preferencias</h2>
         <div class="flex items-center gap-3 px-4 py-3">
           <div class="flex-1"><p class="text-sm font-semibold">Notificaciones</p><p class="text-xs text-gray-500">Avisos demo locales</p></div>
           <input id="set-notif" type="checkbox" class="toggle" checked />
@@ -107,8 +128,8 @@
       </section>
 
       <button id="btn-install" class="visible w-full bg-gray-900 border border-cyan-400/40 text-cyan-300 font-bold py-3 rounded-2xl justify-center">Instalar app en el teléfono</button>
-      <button id="btn-clear" class="w-full bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold py-3 rounded-2xl">Borrar datos locales</button>
-      <p class="text-center text-[11px] text-gray-600">MiApp Store · PWA sin base de datos ni pasarela de pago</p>
+      <button id="btn-clear" class="w-full bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold py-3 rounded-2xl">Borrar mis datos locales</button>
+      <p class="text-center text-[11px] text-gray-600">Tus datos de comprador no se envían a ningún servidor.</p>
     </main>
 
     <nav class="tabbar fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-gray-950/95 backdrop-blur border-t border-gray-800 z-20">
@@ -136,8 +157,24 @@
   </div>
 
   <script src="./js/supabase-config.js"></script>
+  <script src="./js/storefront.js"></script>
   <script src="./js/products.js"></script>
   <script src="./js/shop.js"></script>
   <script src="./js/app.js"></script>
+  <script>
+    (function () {
+      var nameInput = document.getElementById('p-nombre');
+      var display = document.getElementById('p-display-name');
+      if (!nameInput || !display) return;
+      function paint() {
+        var value = nameInput.value.trim();
+        display.textContent = value || 'Invitado';
+      }
+      nameInput.addEventListener('input', paint);
+      document.addEventListener('buyer:updated', paint);
+      document.addEventListener('DOMContentLoaded', paint);
+      paint();
+    })();
+  </script>
 </body>
 </html>

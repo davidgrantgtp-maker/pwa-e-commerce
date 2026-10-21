@@ -30,6 +30,7 @@
   </div>
 
   <script src="./js/supabase-config.js"></script>
+  <script src="./js/storefront.js"></script>
   <script src="./js/products.js"></script>
   <script src="./js/shop.js"></script>
   <script src="./js/app.js"></script>
@@ -50,17 +51,15 @@
       }
 
       const settings = Shop.getSettings();
-      const waLink = Shop.whatsappLink(order);
       const message = Shop.orderMessage(order);
       const rows = order.items.map(function (item) {
         return '<div class="flex justify-between gap-2"><span class="text-gray-300 truncate">' + item.qty + ' × ' + Shop.escapeHtml(item.name) + '</span><span class="font-semibold shrink-0">' + Shop.formatMoney(item.subtotal) + '</span></div>';
       }).join('');
 
-      const warning = !Shop.normalizePhone(settings.sellerPhone)
+      const warning = !Shop.normalizePhone(settings.whatsapp)
         ? '<div class="bg-amber-400/10 border border-amber-400/30 rounded-2xl p-4 text-sm text-amber-200">' +
-            '<p class="font-bold">Falta configurar el WhatsApp del vendedor</p>' +
-            '<p class="text-[12px] mt-1">Para enviar el pedido, cargá el número en Perfil. El pedido ya quedó guardado en este dispositivo.</p>' +
-            '<a href="./perfil.html" class="inline-block mt-3 text-xs font-bold bg-amber-400 text-gray-950 px-3 py-2 rounded-full">Configurar ahora</a>' +
+            '<p class="font-bold">La tienda todavía no configuró su WhatsApp</p>' +
+            '<p class="text-[12px] mt-1">El vendedor puede cargarlo desde el panel de administración. Tu pedido ya quedó guardado en este dispositivo.</p>' +
           '</div>'
         : '';
 
@@ -119,8 +118,9 @@
       document.getElementById('wa-preview').textContent = message;
 
       document.getElementById('send-wa').addEventListener('click', function () {
+        const waLink = Shop.whatsappLink(order);
         if (!waLink) {
-          window.miappToast('Configurá el WhatsApp del vendedor en Perfil');
+          window.miappToast('La tienda todavía no configuró su WhatsApp');
           return;
         }
         window.open(waLink, '_blank');

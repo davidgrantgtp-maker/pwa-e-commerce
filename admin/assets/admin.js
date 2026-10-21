@@ -20,7 +20,9 @@
     flash: null,
     importRows: null,
     importArchivo: '',
-    importResult: null
+    importResult: null,
+    banners: [],
+    editBanner: null
   };
 
   var ETIQUETAS = {
@@ -139,6 +141,8 @@
       productos: 'productos',
       producto: 'productos',
       categorias: 'categorias',
+      ajustes: 'ajustes',
+      banners: 'banners',
       importar: 'importar',
       masivo: 'masivo',
       cuenta: 'cuenta'
@@ -179,6 +183,8 @@
     if (name === 'productos') return renderProductos();
     if (name === 'producto') return renderProducto(parts[1] || '');
     if (name === 'categorias') return renderCategorias();
+    if (name === 'ajustes') return renderAjustes();
+    if (name === 'banners') return renderBanners();
     if (name === 'importar') return renderImportar();
     if (name === 'masivo') return renderMasivo();
     if (name === 'cuenta') return renderCuenta();
@@ -1252,6 +1258,276 @@
       view.innerHTML = '';
       alertBox(ex.message, 'danger');
     }
+  }
+
+  async function renderAjustes() {
+    setTitle('Ajustes de tienda');
+    view.innerHTML = '<div class="text-secondary py-4">Cargando…</div>';
+    try {
+      var d = await api('configuracion');
+      var c = d.config || {};
+      view.innerHTML = ajustesShell(c);
+      bindAjustes();
+      flashPending();
+    } catch (ex) {
+      view.innerHTML = '';
+      alertBox(ex.message, 'danger');
+    }
+  }
+
+  function ajustesShell(c) {
+    return '<div class="mb-3"><p class="text-secondary small mb-0">Estos datos se muestran en la tienda y se usan en el checkout. Los cambios se reflejan en la PWA al instante.</p></div>' +
+      '<div id="ajustes-error" class="alert alert-danger py-2 d-none"></div>' +
+      '<form id="ajustes-form"><div class="row g-3">' +
+      '<div class="col-lg-8">' +
+      '<div class="card mb-3"><div class="card-header"><i class="bi bi-shop"></i> Datos de la tienda</div><div class="card-body">' +
+      '<div class="row g-3">' +
+      '<div class="col-md-6"><label class="form-label" for="a-tienda">Nombre de la tienda *</label><input class="form-control" id="a-tienda" required maxlength="80" value="' + h(c.tienda_nombre) + '"></div>' +
+      '<div class="col-md-6"><label class="form-label" for="a-vendedor">Nombre del vendedor</label><input class="form-control" id="a-vendedor" maxlength="80" value="' + h(c.vendedor_nombre) + '"></div>' +
+      '<div class="col-md-6"><label class="form-label" for="a-whatsapp">WhatsApp (con código de país)</label><input class="form-control" id="a-whatsapp" type="tel" inputmode="tel" placeholder="5491155551234" value="' + h(c.whatsapp) + '"><div class="form-text">Solo dígitos. Ej: 5491155551234.</div></div>' +
+      '<div class="col-md-6"><label class="form-label" for="a-email">Email</label><input class="form-control" id="a-email" type="email" maxlength="120" value="' + h(c.email) + '"></div>' +
+      '<div class="col-md-6"><label class="form-label" for="a-instagram">Instagram</label><input class="form-control" id="a-instagram" maxlength="100" placeholder="usuario" value="' + h(c.instagram) + '"></div>' +
+      '<div class="col-md-6"><label class="form-label" for="a-horario">Horario</label><input class="form-control" id="a-horario" maxlength="120" value="' + h(c.horario) + '"></div>' +
+      '<div class="col-12"><label class="form-label" for="a-direccion">Dirección</label><input class="form-control" id="a-direccion" maxlength="160" value="' + h(c.direccion) + '"></div>' +
+      '</div></div></div>' +
+      '<div class="card"><div class="card-header"><i class="bi bi-truck"></i> Entrega y promociones</div><div class="card-body"><div class="row g-3">' +
+      '<div class="col-md-6"><label class="form-label" for="a-envio">Costo de envío</label><input class="form-control" id="a-envio" type="number" min="0" step="0.01" value="' + h(c.envio_costo) + '"></div>' +
+      '<div class="col-md-6"><label class="form-label" for="a-gratis">Envío gratis desde</label><input class="form-control" id="a-gratis" type="number" min="0" step="0.01" value="' + h(c.envio_gratis_desde) + '"></div>' +
+      '<div class="col-md-6"><label class="form-label" for="a-cupon">Código de cupón</label><input class="form-control" id="a-cupon" maxlength="30" placeholder="DEMO10" value="' + h(c.cupon_codigo) + '"></div>' +
+      '<div class="col-md-6"><label class="form-label" for="a-descuento">Descuento del cupón (%)</label><input class="form-control" id="a-descuento" type="number" min="0" max="100" step="1" value="' + h(c.cupon_descuento) + '"></div>' +
+      '</div></div></div></div>' +
+      '<div class="col-lg-4"><div class="card mb-3"><div class="card-header">Vista previa</div><div class="card-body">' +
+      '<p class="small text-secondary mb-1">La tienda mostrará:</p>' +
+      '<p class="fw-bold mb-1" id="a-preview-tienda">' + h(c.tienda_nombre || 'MiApp Store') + '</p>' +
+      '<p class="small text-secondary mb-1" id="a-preview-wa">' + (c.whatsapp ? 'WhatsApp: +' + h(c.whatsapp) : 'WhatsApp sin configurar') + '</p>' +
+      '<p class="small text-secondary mb-0" id="a-preview-envio">Envío ' + money(c.envio_costo) + ' · gratis desde ' + money(c.envio_gratis_desde) + '</p>' +
+      '</div></div><div class="card"><div class="card-body d-grid gap-2">' +
+      '<button class="btn btn-accent" id="guardar-ajustes" type="submit"><i class="bi bi-check-lg"></i> Guardar ajustes</button>' +
+      '<a class="btn btn-outline-secondary" href="' + h(ROOT + 'index.html') + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Ver tienda</a>' +
+      '</div></div></div></div></form>';
+  }
+
+  function bindAjustes() {
+    var form = document.getElementById('ajustes-form');
+    var errorBox = document.getElementById('ajustes-error');
+
+    function preview() {
+      document.getElementById('a-preview-tienda').textContent = val('a-tienda') || 'MiApp Store';
+      var wa = val('a-whatsapp').replace(/\D/g, '');
+      document.getElementById('a-preview-wa').textContent = wa ? 'WhatsApp: +' + wa : 'WhatsApp sin configurar';
+      document.getElementById('a-preview-envio').textContent = 'Envío ' + money(val('a-envio')) + ' · gratis desde ' + money(val('a-gratis'));
+    }
+
+    ['a-tienda', 'a-whatsapp', 'a-envio', 'a-gratis'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', preview);
+    });
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      errorBox.classList.add('d-none');
+      var btn = document.getElementById('guardar-ajustes');
+      btn.disabled = true;
+
+      try {
+        var res = await api('configuracion', {
+          method: 'PATCH',
+          body: {
+            tienda_nombre: val('a-tienda'),
+            vendedor_nombre: val('a-vendedor'),
+            whatsapp: val('a-whatsapp'),
+            email: val('a-email'),
+            direccion: val('a-direccion'),
+            horario: val('a-horario'),
+            instagram: val('a-instagram'),
+            envio_costo: val('a-envio'),
+            envio_gratis_desde: val('a-gratis'),
+            cupon_codigo: val('a-cupon'),
+            cupon_descuento: val('a-descuento')
+          }
+        });
+        state.flash = { message: res.message || 'Configuración guardada.', type: 'success' };
+        renderAjustes();
+      } catch (ex) {
+        errorBox.textContent = ex.message;
+        errorBox.classList.remove('d-none');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
+  async function renderBanners() {
+    setTitle('Banners');
+    view.innerHTML = '<div class="text-secondary py-4">Cargando…</div>';
+    try {
+      var d = await api('banners');
+      state.banners = d.rows || [];
+      view.innerHTML = bannersShell();
+      bindBanners();
+      flashPending();
+    } catch (ex) {
+      view.innerHTML = '';
+      alertBox(ex.message, 'danger');
+    }
+  }
+
+  function bannersShell() {
+    var editing = state.editBanner;
+    var maxOrder = state.banners.reduce(function (max, b) { return Math.max(max, Number(b.orden) || 0); }, -1);
+    var b = editing || {
+      id: null,
+      titulo: '',
+      subtitulo: '',
+      etiqueta: '',
+      texto_boton: '',
+      enlace: '#catalogo',
+      imagen: '',
+      activo: true,
+      orden: maxOrder + 1
+    };
+
+    var html = '<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">' +
+      '<p class="text-secondary small mb-0">Carrusel de la tienda. Solo los banners activos se muestran a los compradores.</p>' +
+      (editing ? '<button class="btn btn-sm btn-outline-secondary" id="banner-cancel" type="button">Cancelar edición</button>' : '') +
+      '</div>';
+
+    html += '<div class="card mb-3"><div class="card-header"><i class="bi bi-images"></i> Banners publicados</div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Orden</th><th>Banner</th><th>Enlace</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+    if (!state.banners.length) {
+      html += '<tr><td colspan="5" class="text-center text-secondary py-4">Todavía no hay banners.</td></tr>';
+    }
+    state.banners.forEach(function (row) {
+      html += '<tr>' +
+        '<td class="text-secondary">' + h(row.orden) + '</td>' +
+        '<td><div class="fw-semibold">' + h(row.titulo) + '</div><div class="small text-secondary">' + h(row.subtitulo || '—') + '</div>' +
+        (row.etiqueta ? '<span class="badge text-bg-dark border border-secondary mt-1">' + h(row.etiqueta) + '</span>' : '') + '</td>' +
+        '<td class="small text-secondary">' + h(row.enlace || '#catalogo') + '</td>' +
+        '<td>' + (row.activo ? '<span class="badge text-bg-success">Activo</span>' : '<span class="badge text-bg-secondary">Oculto</span>') + '</td>' +
+        '<td class="text-end text-nowrap">' +
+        '<button class="btn btn-sm btn-outline-accent me-1" data-edit="' + h(row.id) + '" type="button"><i class="bi bi-pencil"></i></button>' +
+        '<button class="btn btn-sm btn-outline-danger" data-del="' + h(row.id) + '" type="button"><i class="bi bi-trash"></i></button>' +
+        '</td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+
+    html += '<div class="card" id="banner-form-card"><div class="card-header">' + (editing ? 'Editar banner' : 'Nuevo banner') + '</div><div class="card-body">' +
+      '<div id="banner-error" class="alert alert-danger py-2 d-none"></div>' +
+      '<form id="banner-form"><div class="row g-3">' +
+      '<div class="col-lg-8">' +
+      '<div class="mb-3"><label class="form-label" for="b-titulo">Título *</label><input class="form-control" id="b-titulo" required maxlength="80" value="' + h(b.titulo) + '"></div>' +
+      '<div class="mb-3"><label class="form-label" for="b-subtitulo">Subtítulo</label><input class="form-control" id="b-subtitulo" maxlength="160" value="' + h(b.subtitulo) + '"></div>' +
+      '<div class="row g-3"><div class="col-md-4"><label class="form-label" for="b-etiqueta">Etiqueta</label><input class="form-control" id="b-etiqueta" maxlength="24" placeholder="OFERTA" value="' + h(b.etiqueta) + '"></div>' +
+      '<div class="col-md-4"><label class="form-label" for="b-boton">Texto del botón</label><input class="form-control" id="b-boton" maxlength="30" placeholder="Ver productos" value="' + h(b.texto_boton) + '"></div>' +
+      '<div class="col-md-4"><label class="form-label" for="b-orden">Orden</label><input class="form-control" id="b-orden" type="number" step="1" value="' + h(b.orden) + '"></div></div>' +
+      '<div class="mt-3"><label class="form-label" for="b-enlace">Enlace</label><input class="form-control" id="b-enlace" maxlength="300" placeholder="#catalogo" value="' + h(b.enlace) + '"><div class="form-text">Podés usar #catalogo, ./producto.html?id=… o una URL completa.</div></div>' +
+      '</div><div class="col-lg-4">' +
+      '<div class="text-center mb-3" id="banner-img-preview">' + (b.imagen
+        ? '<img class="prod-thumb-lg" src="' + h(imgSrc(b.imagen)) + '" alt="Vista previa" data-placeholder="' + h(ROOT + 'img/placeholder.svg') + '" onerror="this.src=this.dataset.placeholder">'
+        : '<div class="prod-thumb-lg d-grid mx-auto" style="place-items:center"><i class="bi bi-image text-secondary fs-3"></i></div>') + '</div>' +
+      '<div class="mb-3"><label class="form-label" for="banner_archivo">Subir imagen</label><input class="form-control" type="file" id="banner_archivo" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"><div class="form-text">Opcional · máx. 2 MB</div><div class="small text-info mt-1" id="banner-upload-status"></div></div>' +
+      '<div class="mb-3"><label class="form-label" for="b-imagen">o URL / ruta</label><input class="form-control" id="b-imagen" maxlength="500" value="' + h(b.imagen) + '" placeholder="https://…"></div>' +
+      '<div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="b-activo"' + (b.activo ? ' checked' : '') + '><label class="form-check-label" for="b-activo">Visible en la tienda</label></div>' +
+      '<button class="btn btn-accent w-100" id="guardar-banner" type="submit"><i class="bi bi-check-lg"></i> ' + (editing ? 'Guardar cambios' : 'Crear banner') + '</button>' +
+      '</div></div></form></div></div>';
+
+    return html;
+  }
+
+  function bindBanners() {
+    var form = document.getElementById('banner-form');
+    var errorBox = document.getElementById('banner-error');
+    var editing = state.editBanner;
+    var cancel = document.getElementById('banner-cancel');
+
+    if (cancel) {
+      cancel.addEventListener('click', function () {
+        state.editBanner = null;
+        renderBanners();
+      });
+    }
+
+    view.querySelectorAll('[data-edit]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-edit');
+        state.editBanner = state.banners.find(function (row) { return String(row.id) === String(id); }) || null;
+        renderBanners();
+      });
+    });
+
+    view.querySelectorAll('[data-del]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        if (!confirm('¿Eliminar este banner?')) return;
+        try {
+          await api('banners', { method: 'DELETE', body: { id: btn.getAttribute('data-del') } });
+          state.flash = { message: 'Banner eliminado.', type: 'warning' };
+          if (state.editBanner && String(state.editBanner.id) === String(btn.getAttribute('data-del'))) state.editBanner = null;
+          renderBanners();
+        } catch (ex) {
+          alertBox(ex.message, 'danger');
+        }
+      });
+    });
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      errorBox.classList.add('d-none');
+      var btn = document.getElementById('guardar-banner');
+      btn.disabled = true;
+
+      var body = {
+        titulo: val('b-titulo'),
+        subtitulo: val('b-subtitulo'),
+        etiqueta: val('b-etiqueta'),
+        texto_boton: val('b-boton'),
+        enlace: val('b-enlace') || '#catalogo',
+        imagen: val('b-imagen'),
+        activo: document.getElementById('b-activo').checked,
+        orden: val('b-orden')
+      };
+
+      try {
+        if (editing) {
+          body.id = editing.id;
+          await api('banners', { method: 'PATCH', body: body });
+          state.flash = { message: 'Banner actualizado.', type: 'success' };
+        } else {
+          await api('banners', { method: 'POST', body: body });
+          state.flash = { message: 'Banner creado.', type: 'success' };
+        }
+        state.editBanner = null;
+        renderBanners();
+      } catch (ex) {
+        errorBox.textContent = ex.message;
+        errorBox.classList.remove('d-none');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('banner_archivo').addEventListener('change', async function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) {
+        alertBox('La imagen supera 2 MB.', 'warning');
+        e.target.value = '';
+        return;
+      }
+      var status = document.getElementById('banner-upload-status');
+      status.textContent = 'Subiendo…';
+      try {
+        var dataUrl = await leerArchivo(file);
+        var r = await api('upload', { method: 'POST', body: { filename: file.name, data: dataUrl } });
+        document.getElementById('b-imagen').value = r.url;
+        document.getElementById('banner-img-preview').innerHTML = '<img class="prod-thumb-lg" src="' + h(r.url) + '" alt="Vista previa">';
+        status.textContent = 'Imagen subida.';
+      } catch (ex) {
+        status.textContent = '';
+        alertBox(ex.message, 'danger');
+      }
+    });
+
+    var formCard = document.getElementById('banner-form-card');
+    if (formCard && editing) formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function renderCuenta() {

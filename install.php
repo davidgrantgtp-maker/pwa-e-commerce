@@ -16,6 +16,7 @@ $esCli = (php_sapi_name() === 'cli');
 $log = array();
 $ok = false;
 $tablasOk = false;
+$migracionOk = true;
 
 function paso(&$log, $msg) { $log[] = $msg; }
 
@@ -97,6 +98,14 @@ if ($tablasOk) {
             paso($log, 'Ya existen productos: se omite el seed.');
         }
 
+        try {
+            sb()->get('banners', array('select' => 'id', 'limit' => 1));
+            paso($log, 'Configuración de tienda y banners disponibles.');
+        } catch (Exception $e) {
+            $migracionOk = false;
+            paso($log, 'Falta la migración de configuración y banners: ejecutá sql/supabase_config_banners.sql.');
+        }
+
         paso($log, 'Instalación completada.');
         $ok = true;
     } catch (Exception $e) {
@@ -128,9 +137,15 @@ if ($esCli) {
           <li class="list-group-item bg-transparent"><?php echo h($l); ?></li>
         <?php endforeach; ?>
       </ul>
-      <?php if ($ok): ?>
+      <?php if ($ok && $migracionOk): ?>
         <div class="alert alert-success">Todo listo. Ya podés entrar al panel.</div>
-        <a class="btn btn-info fw-bold" href="admin/login.php">Ir al panel de administración</a>
+        <a class="btn btn-info fw-bold" href="./admin/">Ir al panel de administración</a>
+      <?php elseif ($ok): ?>
+        <div class="alert alert-warning">
+          <strong>Falta la migración de configuración y banners.</strong> Ejecutá <code>sql/supabase_config_banners.sql</code>
+          en el SQL Editor de Supabase para habilitar Ajustes y Banners.
+        </div>
+        <a class="btn btn-outline-info fw-bold" href="./admin/">Ir al panel de administración</a>
       <?php elseif (!$tablasOk): ?>
         <div class="alert alert-warning">
           <strong>Falta el esquema.</strong> Abrí el <em>SQL Editor</em> del proyecto Supabase, pegá el contenido de

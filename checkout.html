@@ -62,6 +62,7 @@
               <input id="co-tel" name="telefono" type="tel" inputmode="tel" autocomplete="tel" required placeholder="Ej: 11 5555 1234"
                 class="w-full mt-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600" />
             </div>
+            <p class="text-[11px] text-gray-500">Tus datos se guardan en este dispositivo para tu próxima compra.</p>
           </section>
 
           <section class="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
@@ -124,6 +125,7 @@
   </div>
 
   <script src="./js/supabase-config.js"></script>
+  <script src="./js/storefront.js"></script>
   <script src="./js/products.js"></script>
   <script src="./js/shop.js"></script>
   <script src="./js/app.js"></script>
@@ -144,8 +146,13 @@
         return;
       }
 
-      const settings = Shop.getSettings();
-      document.getElementById('co-nombre').value = settings.nombre === 'Usuario Demo' ? '' : settings.nombre;
+      const buyer = Shop.getBuyer();
+      document.getElementById('co-nombre').value = buyer.nombre || '';
+      document.getElementById('co-tel').value = buyer.telefono || '';
+      document.getElementById('co-notas').value = buyer.notas || '';
+      const buyerAddress = buyer.direccion || '';
+      const buyerCity = buyer.ciudad || '';
+      addressInput.value = buyerAddress + (buyerCity && buyerAddress.toLowerCase().indexOf(buyerCity.toLowerCase()) === -1 ? ', ' + buyerCity : '');
       envioLabel.textContent = base.shipping === 0
         ? 'Gratis por tu compra'
         : Shop.formatMoney(base.shippingCost) + ' · gratis desde ' + Shop.formatMoney(base.freeFrom);
@@ -199,6 +206,12 @@
           return;
         }
         const payment = form.querySelector('input[name="pago"]:checked').value;
+        Shop.saveBuyer({
+          nombre: name,
+          telefono: phone,
+          direccion: delivery === 'envio' ? address : buyer.direccion,
+          notas: document.getElementById('co-notas').value.trim()
+        });
         const order = Shop.createOrder({
           name: name,
           phone: phone,
@@ -215,6 +228,13 @@
       });
 
       document.addEventListener('products:updated', renderSummary);
+      document.addEventListener('store:updated', function () {
+        const fresh = Shop.totals();
+        envioLabel.textContent = fresh.shipping === 0
+          ? 'Gratis por tu compra'
+          : Shop.formatMoney(fresh.shippingCost) + ' · gratis desde ' + Shop.formatMoney(fresh.freeFrom);
+        renderSummary();
+      });
       paintDelivery();
     })();
   </script>

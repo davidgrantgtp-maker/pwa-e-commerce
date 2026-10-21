@@ -39,15 +39,34 @@
           </div>
           <p class="text-xs font-bold mt-2">Llamar</p>
         </a>
-        <a href="mailto:hola@miapp.store" class="card-press bg-gray-900 border border-gray-800 rounded-2xl p-3 text-center">
+        <a id="email-link" href="mailto:hola@miapp.store" class="card-press bg-gray-900 border border-gray-800 rounded-2xl p-3 text-center">
           <div class="w-9 h-9 mx-auto rounded-full bg-cyan-400/15 text-cyan-300 grid place-items-center font-bold">@</div>
           <p class="text-xs font-bold mt-2">Email</p>
         </a>
       </section>
 
       <p id="wa-hint" class="hidden bg-amber-400/10 border border-amber-400/30 rounded-2xl p-3 text-[11px] text-amber-200">
-        Todavía no cargaste el WhatsApp del vendedor. <a href="./perfil.html" class="font-bold underline">Configuralo en Perfil</a> para recibir pedidos.
+        La tienda todavía no tiene un WhatsApp configurado. El vendedor puede cargarlo desde el panel de administración.
       </p>
+
+      <section class="bg-gray-900 border border-gray-800 rounded-2xl divide-y divide-gray-800 text-sm">
+        <div class="flex items-start justify-between gap-4 px-4 py-3">
+          <span class="text-gray-400">Dirección</span>
+          <span id="store-address" class="font-semibold text-right">Obelisco, CABA</span>
+        </div>
+        <div class="flex items-start justify-between gap-4 px-4 py-3">
+          <span class="text-gray-400">Horario</span>
+          <span id="store-hours" class="font-semibold text-right">Lun a Vie · 9 a 18h</span>
+        </div>
+        <div class="flex items-start justify-between gap-4 px-4 py-3">
+          <span class="text-gray-400">Email</span>
+          <span id="store-email" class="font-semibold text-right break-all">hola@miapp.store</span>
+        </div>
+        <a id="instagram-link" href="#" target="_blank" rel="noopener" class="hidden items-center justify-between gap-4 px-4 py-3">
+          <span class="text-gray-400">Instagram</span>
+          <span id="store-instagram" class="font-semibold text-cyan-300">Ver perfil</span>
+        </a>
+      </section>
 
       <section class="bg-gray-900 border border-gray-800 rounded-2xl p-4">
         <h2 class="font-bold">Escribinos <span class="text-xs font-normal text-gray-400">(demo)</span></h2>
@@ -64,15 +83,15 @@
       </section>
 
       <section class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        <div class="p-4 pb-2 flex items-center justify-between">
+        <div class="p-4 pb-2 flex items-center justify-between gap-3">
           <h2 class="font-bold">Ubicación</h2>
-          <span class="text-xs text-gray-400">Obelisco, CABA</span>
+          <span id="map-label" class="text-xs text-gray-400 truncate">Obelisco, CABA</span>
         </div>
-        <iframe title="Mapa demo" src="https://maps.google.com/maps?q=Obelisco%20Buenos%20Aires&t=&z=15&ie=UTF8&iwloc=&output=embed"
+        <iframe id="map-frame" title="Mapa de la tienda" src="https://maps.google.com/maps?q=Obelisco%20Buenos%20Aires&t=&z=15&ie=UTF8&iwloc=&output=embed"
           class="w-full h-52 grayscale invert-[0.9] contrast-[0.9]" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-        <div class="p-4 text-sm text-gray-400 flex justify-between">
-          <span>Lun a Vie · 9 a 18h</span>
-          <a class="text-cyan-300 font-semibold" target="_blank" rel="noopener" href="https://maps.google.com/?q=Obelisco+Buenos+Aires">Cómo llegar →</a>
+        <div class="p-4 text-sm text-gray-400 flex justify-between gap-3">
+          <span id="map-hours">Lun a Vie · 9 a 18h</span>
+          <a id="map-link" class="text-cyan-300 font-semibold shrink-0" target="_blank" rel="noopener" href="https://maps.google.com/?q=Obelisco+Buenos+Aires">Cómo llegar →</a>
         </div>
       </section>
     </main>
@@ -102,25 +121,80 @@
   </div>
 
   <script src="./js/supabase-config.js"></script>
+  <script src="./js/storefront.js"></script>
   <script src="./js/products.js"></script>
   <script src="./js/shop.js"></script>
   <script src="./js/app.js"></script>
   <script>
     (function () {
-      const settings = Shop.getSettings();
-      const phone = Shop.normalizePhone(settings.sellerPhone);
       const wa = document.getElementById('wa-link');
       const tel = document.getElementById('tel-link');
-      if (phone) {
-        wa.href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('Hola ' + settings.storeName + ', quería hacer una consulta.');
-        tel.href = 'tel:+' + phone;
-      } else {
-        wa.href = './perfil.html';
-        document.getElementById('wa-hint').classList.remove('hidden');
+      const hint = document.getElementById('wa-hint');
+      const emailLink = document.getElementById('email-link');
+      const emailText = document.getElementById('store-email');
+      const addressText = document.getElementById('store-address');
+      const hoursText = document.getElementById('store-hours');
+      const mapFrame = document.getElementById('map-frame');
+      const mapLabel = document.getElementById('map-label');
+      const mapHours = document.getElementById('map-hours');
+      const mapLink = document.getElementById('map-link');
+      const instagramLink = document.getElementById('instagram-link');
+      const instagramText = document.getElementById('store-instagram');
+
+      function instagramUrl(value) {
+        value = String(value || '').trim();
+        if (!value) return '';
+        if (/^https?:\/\//i.test(value)) return value;
+        return 'https://instagram.com/' + value.replace(/^@/, '');
       }
-      document.querySelectorAll('[data-store-name]').forEach(function (el) {
-        el.textContent = settings.storeName;
-      });
+
+      function paint() {
+        const settings = Shop.getSettings();
+        const phone = Shop.normalizePhone(settings.whatsapp);
+        const query = settings.address || 'Obelisco, Buenos Aires';
+        const email = settings.email || 'hola@miapp.store';
+        const hours = settings.hours || 'Lun a Vie · 9 a 18h';
+
+        if (phone) {
+          wa.href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('Hola ' + settings.storeName + ', quería hacer una consulta.');
+          tel.href = 'tel:+' + phone;
+          wa.classList.remove('opacity-40', 'pointer-events-none');
+          tel.classList.remove('opacity-40', 'pointer-events-none');
+          hint.classList.add('hidden');
+        } else {
+          wa.removeAttribute('href');
+          tel.removeAttribute('href');
+          wa.classList.add('opacity-40', 'pointer-events-none');
+          tel.classList.add('opacity-40', 'pointer-events-none');
+          hint.classList.remove('hidden');
+        }
+
+        emailLink.href = 'mailto:' + email;
+        emailText.textContent = email;
+        addressText.textContent = settings.address || 'Obelisco, CABA';
+        hoursText.textContent = hours;
+        mapLabel.textContent = settings.address || 'Obelisco, CABA';
+        mapHours.textContent = hours;
+        mapFrame.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(query) + '&t=&z=15&ie=UTF8&iwloc=&output=embed';
+        mapLink.href = 'https://maps.google.com/?q=' + encodeURIComponent(query);
+
+        const ig = instagramUrl(settings.instagram);
+        instagramLink.classList.toggle('hidden', !ig);
+        instagramLink.classList.toggle('flex', !!ig);
+        if (ig) {
+          instagramLink.href = ig;
+          instagramText.textContent = '@' + (settings.instagram || '').replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/$/, '');
+        }
+
+        const buyer = Shop.getBuyer();
+        const nameInput = document.getElementById('c-nombre');
+        const emailInput = document.getElementById('c-email');
+        if (nameInput && !nameInput.value) nameInput.value = buyer.nombre || '';
+        if (emailInput && !emailInput.value) emailInput.value = buyer.email || '';
+      }
+
+      paint();
+      document.addEventListener('store:updated', paint);
     })();
   </script>
 </body>
